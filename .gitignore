@@ -15,3 +15,8 @@ memory/voice/
 .vscode/
 .idea/
 Thumbs.db
+
+
+# Generated posts (keep the folder, not the drafts)
+outputs/*
+!outputs/.gitkeep
