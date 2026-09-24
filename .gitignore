@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Runtime state (repo cache, SQLite DB, run files)
+data/
+
+# Secrets and private content
+.env
+memory/voice/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
