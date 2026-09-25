@@ -55,13 +55,13 @@ MAX_FILES = 500              # tree entries kept (tree_truncated=True beyond thi
 MAX_COMMITS = 30             # history depth for git sources
 README_CHARS = 8_000
 DEP_CHARS = 4_000
-KEY_FILE_CHARS = 6_000       # per file
-KEY_FILES_BUDGET = 60_000    # total source chars handed to the analyzer
+KEY_FILE_CHARS = 12_000       # per file
+KEY_FILES_BUDGET = 80_000    # total source chars handed to the analyzer
 
 ZIP_MAX_DOWNLOAD = 100 * 1024 * 1024       # 100 MB compressed
 ZIP_MAX_UNCOMPRESSED = 300 * 1024 * 1024   # 300 MB after extraction
 ZIP_MAX_MEMBERS = 20_000
-CACHE_VERSION = 3            # bump when the output shape changes; old cache files are ignored
+CACHE_VERSION = 4            # bump when the output shape changes; old cache files are ignored
 
 
 # ---------- helpers ----------
