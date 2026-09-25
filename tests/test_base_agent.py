@@ -2,7 +2,7 @@
 import pytest
 from pydantic import ValidationError
 
-from core.base_agent import AgentError, BaseAgent, SkipStage
+from core.base_agent import AgentError, BaseAgent, HandoffPending, SkipStage
 from core.schemas import Evidence
 
 
@@ -24,6 +24,10 @@ class Refuses(Echo):
 class Skips(Echo):
     def run(self, ctx):
         raise SkipStage("no critic flags")
+
+class Waits(Echo):
+    def run(self, ctx):
+        raise HandoffPending("prompt written to data/runs/r1/echo.prompt.md")
 
 class TypeBug(Echo):
     def run(self, ctx):
@@ -69,6 +73,12 @@ def test_unexpected_bug_is_caught_with_type():
     assert rec["status"] == "failed"
     assert rec["error"].startswith("ZeroDivisionError")
 
+
+def test_handoff_pending_is_waiting_not_failed():
+    ctx = {"text": "hi"}
+    rec = Waits().execute(ctx)
+    assert rec["status"] == "waiting" and "prompt written" in rec["error"]
+    assert "echoed" not in ctx
 
 def test_type_error_in_run_not_mislabelled_as_json():
     rec = TypeBug().execute({"text": "hi"})

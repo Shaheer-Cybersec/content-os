@@ -34,6 +34,6 @@ class StageRecord(BaseModel):
     """What execute() reports for one agent run. Written to the run log."""
     id: str                                  # "A01"
     agent: str                               # "repo_ingest"
-    status: Literal["success", "failed", "skipped"]
+    status: Literal["success", "failed", "skipped", "waiting"]
     duration_ms: int = 0
     error: Optional[str] = None

@@ -31,6 +31,10 @@ class SkipStage(Exception):
     """The agent decided it has nothing to do (e.g. A09 reviser when there are no flags)."""
 
 
+class HandoffPending(Exception):
+    """An LLM stage is waiting for Claude (handoff backend). Not a failure: the run pauses."""
+
+
 class BaseAgent:
     agent_id: str = "A00"
     name: str = "base"
@@ -53,6 +57,8 @@ class BaseAgent:
             output = self.run(ctx)
         except SkipStage as e:
             status, error = "skipped", str(e) or None
+        except HandoffPending as e:
+            status, error = "waiting", str(e)
         except AgentError as e:
             error = str(e)
         except Exception as e:  # a real bug: keep the type so it's debuggable
