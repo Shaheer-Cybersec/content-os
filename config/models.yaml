@@ -1,0 +1,27 @@
+# [I06] model routing. No API keys anywhere in this project.
+#
+# Backend for each LLM stage, in priority order:
+#   1. CONTENTOS_BACKEND=mock  -> every stage is mock (tests; always wins)
+#   2. stages.<name> below     -> per-stage override
+#   3. CONTENTOS_BACKEND       -> default for everything else (default: claude)
+#
+# Backends:
+#   claude  Claude does the stage in chat/Cowork (prompt file -> response file). DEFAULT.
+#   mock    fake outputs, validated against the schema. Tests only.
+#   ollama  local model. Kept for later; not used unless a stage is routed to it.
+#   (a future "claude_api" backend would slot in here without touching any agent)
+
+tiers:
+  heavy:
+    ollama_model: "llama3.1:8b" # only read when a stage is routed to ollama
+  mid:
+    ollama_model: "llama3.1:8b"
+
+stages: {}
+  # Everything runs on Claude by default. Example of a later per-stage override:
+  # critic: ollama
+
+ollama:
+  timeout_s: 300
+  retries: 3 # connection retries, exponential backoff 1s, 2s, 4s
+  temperature: 0.4
