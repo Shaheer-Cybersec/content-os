@@ -132,3 +132,35 @@ def insert_post(conn: sqlite3.Connection, repo_id: str, run_id: str,
         "INSERT INTO posts (repo_id, run_id, angle_id, text, embedding) VALUES (?, ?, ?, ?, ?)",
         (repo_id, run_id, angle_id, text, embedding))
     return cur.lastrowid
+
+
+
+# ---------- read helpers (added for A02 / A04) ----------
+
+def recent_posts(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
+    """Most recent posts across ALL repos (dedup must see everything you've posted)."""
+    rows = conn.execute(
+        "SELECT p.id, p.repo_id, p.text, p.created_at, a.title AS angle_title, "
+        "       p.embedding IS NOT NULL AS has_embedding "
+        "FROM posts p LEFT JOIN angles a ON a.id = p.angle_id "
+        "ORDER BY p.id DESC LIMIT ?", (limit,)).fetchall()
+    return [{**dict(r), "has_embedding": bool(r["has_embedding"])} for r in rows]
+
+
+def queued_angles(conn: sqlite3.Connection, repo_id: str) -> list[dict]:
+    """Angles saved from earlier runs of THIS repo that were never used."""
+    rows = conn.execute(
+        "SELECT id, title, summary, score, dedup_status FROM angles "
+        "WHERE repo_id = ? AND status = 'queued' ORDER BY score DESC, id", (repo_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def post_vectors(conn: sqlite3.Connection, post_ids: list[int]) -> dict[int, bytes]:
+    """Raw embedding blobs for the given posts. Used by A04 directly, never put in context."""
+    if not post_ids:
+        return {}
+    marks = ",".join("?" * len(post_ids))
+    rows = conn.execute(
+        f"SELECT id, embedding FROM posts WHERE id IN ({marks}) AND embedding IS NOT NULL",
+        post_ids).fetchall()
+    return {r["id"]: r["embedding"] for r in rows}
