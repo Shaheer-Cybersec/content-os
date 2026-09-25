@@ -90,3 +90,45 @@ if __name__ == "__main__":
         with connect() as c:
             n = c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
         print(f"table     {t:<8} rows={n}")
+
+
+
+
+# ---------- write helpers (added for A11) ----------
+# Each takes an open connection so A11 can do all its writes in ONE transaction.
+
+def upsert_repo(conn: sqlite3.Connection, repo_id: str, url: str,
+                last_sha: str, ingested_at: str) -> None:
+    conn.execute(
+        "INSERT INTO repos (id, url, last_sha, ingested_at) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET url=excluded.url, last_sha=excluded.last_sha, "
+        "ingested_at=excluded.ingested_at",
+        (repo_id, url, last_sha, ingested_at))
+
+
+def finish_run(conn: sqlite3.Connection, run_id: str, repo_id: str,
+               last_stage: str, context_json: str) -> None:
+    conn.execute(
+        "INSERT INTO runs (id, repo_id, status, last_stage, context_json) "
+        "VALUES (?, ?, 'done', ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET status='done', last_stage=excluded.last_stage, "
+        "context_json=excluded.context_json, updated_at=datetime('now')",
+        (run_id, repo_id, last_stage, context_json))
+
+
+def insert_angle(conn: sqlite3.Connection, repo_id: str, run_id: str, title: str,
+                 summary: str | None, score: float | None,
+                 dedup_status: str | None, status: str) -> int:
+    cur = conn.execute(
+        "INSERT INTO angles (repo_id, run_id, title, summary, score, dedup_status, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (repo_id, run_id, title, summary, score, dedup_status, status))
+    return cur.lastrowid
+
+
+def insert_post(conn: sqlite3.Connection, repo_id: str, run_id: str,
+                angle_id: int | None, text: str, embedding: bytes | None) -> int:
+    cur = conn.execute(
+        "INSERT INTO posts (repo_id, run_id, angle_id, text, embedding) VALUES (?, ?, ?, ?, ?)",
+        (repo_id, run_id, angle_id, text, embedding))
+    return cur.lastrowid
