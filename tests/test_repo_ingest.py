@@ -148,3 +148,12 @@ def test_not_a_zip_rejected(tmp_path):
 def test_missing_source_fails_cleanly():
     rec = RepoIngest().execute({})
     assert rec["status"] == "failed" and "source" in rec["error"]
+
+def test_zip_never_returns_git_cache(tmp_path):
+    """Regression: a zip and a git clone of the same commit must not share a cache file."""
+    import json
+    A.cache_path("git", "local", "demo", SHA).write_text(json.dumps({"source_type": "git"}))
+    zp = make_zip(tmp_path / "demo-main.zip", FILES, comment=SHA.encode())
+    ctx = {"source": str(zp)}
+    RepoIngest().execute(ctx)
+    assert ctx["repo"]["source_type"] == "zip" and ctx["repo"]["cache_hit"] is False

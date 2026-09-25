@@ -288,8 +288,9 @@ def extract(root: Path, meta: dict, commits: list[dict]) -> dict:
     }
 
 
-def cache_path(owner: str, repo: str, head_sha: str) -> Path:
-    return CACHE_DIR / f"v{CACHE_VERSION}__{owner}__{repo}__{head_sha[:12]}.json"
+def cache_path(source_type: str, owner: str, repo: str, head_sha: str) -> Path:
+    """One cache file per source type, so a zip run never returns a git run's data."""
+    return CACHE_DIR / f"v{CACHE_VERSION}__{source_type}__{owner}__{repo}__{head_sha[:12]}.json"
 
 
 # ---------- agent ----------
@@ -313,7 +314,7 @@ class RepoIngest(BaseAgent):
             raise AgentError("repo has no commits yet")
         head_sha = head[0]
 
-        cached = cache_path(owner, repo, head_sha)
+        cached = cache_path("git", owner, repo, head_sha)
         if cached.exists():
             return {**json.loads(cached.read_text(encoding="utf-8")), "cache_hit": True}
 
@@ -349,7 +350,7 @@ class RepoIngest(BaseAgent):
             owner = src["owner"]
             repo = src["repo"] or repo_name_from_folder(root, zip_path.stem)
 
-            cached = cache_path(owner, repo, head_sha)
+            cached = cache_path("zip", owner, repo, head_sha)
             if cached.exists():
                 return {**json.loads(cached.read_text(encoding="utf-8")), "cache_hit": True}
 
@@ -361,7 +362,7 @@ class RepoIngest(BaseAgent):
         return self._save(data)
 
     def _save(self, data: dict) -> dict:
-        cache_path(data["owner"], data["repo"], data["head_sha"]).write_text(
+        cache_path(data["source_type"], data["owner"], data["repo"], data["head_sha"]).write_text(
             json.dumps(data, indent=2), encoding="utf-8")
         return {**data, "cache_hit": False}
 
