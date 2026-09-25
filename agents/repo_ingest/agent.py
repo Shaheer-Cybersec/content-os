@@ -61,7 +61,7 @@ KEY_FILES_BUDGET = 60_000    # total source chars handed to the analyzer
 ZIP_MAX_DOWNLOAD = 100 * 1024 * 1024       # 100 MB compressed
 ZIP_MAX_UNCOMPRESSED = 300 * 1024 * 1024   # 300 MB after extraction
 ZIP_MAX_MEMBERS = 20_000
-CACHE_VERSION = 2            # bump when the output shape changes; old cache files are ignored
+CACHE_VERSION = 3            # bump when the output shape changes; old cache files are ignored
 
 
 # ---------- helpers ----------
@@ -243,8 +243,14 @@ def read_commits(root: Path) -> list[dict]:
     return commits
 
 
+CODE_EXT = {".py", ".js", ".ts", ".go", ".rs", ".java", ".sh", ".ps1"}
+LOW_VALUE_DIRS = ("docs/", "examples/", "benchmarks/")
+
+
 def pick_key_files(root: Path, tree: list[dict]) -> dict[str, str]:
-    """Source files the analyzer reads: entry points first, tests last, within budget."""
+    """Source files the analyzer reads, within budget. Order:
+    real code before config/docs, entry points first, hidden dirs (.github, .pre-commit)
+    and tests last."""
     candidates = [f for f in tree
                   if Path(f["path"]).suffix in SOURCE_EXT
                   and not Path(f["path"]).name.lower().startswith("readme")
@@ -252,10 +258,14 @@ def pick_key_files(root: Path, tree: list[dict]) -> dict[str, str]:
                   and f["size"] > 0]
 
     def priority(f):
-        name = Path(f["path"]).stem.lower()
+        path = f["path"]
+        name = Path(path).stem.lower()
+        is_hidden = any(part.startswith(".") for part in path.split("/"))
+        is_test = "test" in path.lower()
+        is_low = path.startswith(LOW_VALUE_DIRS)
+        is_code = Path(path).suffix in CODE_EXT
         is_entry = any(h in name for h in ENTRY_HINTS)
-        is_test = "test" in f["path"].lower()
-        return (not is_entry, is_test, f["path"].count("/"), f["size"])
+        return (is_hidden, is_test, is_low, not is_code, not is_entry, path.count("/"), f["size"])
 
     picked, used = {}, 0
     for f in sorted(candidates, key=priority):

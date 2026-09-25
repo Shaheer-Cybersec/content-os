@@ -80,6 +80,18 @@ def test_key_files_entry_first_tests_last(fake_repo):
     order = list(pick_key_files(fake_repo, tree))
     assert order[0] == "app/main.py" and order[-1] == "tests/test_util.py"
 
+def test_code_beats_hidden_config(tmp_path):
+    """Regression: .pre-commit-config.yaml and .github/ must not outrank real source."""
+    for rel in (".pre-commit-config.yaml", ".github/workflows/ci.yml",
+                "src/pkg/signer.py", "docs/conf.py"):
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("x = 1\n")
+    tree, _ = walk_tree(tmp_path)
+    order = list(pick_key_files(tmp_path, tree))
+    assert order[0] == "src/pkg/signer.py"
+    assert order.index("docs/conf.py") < order.index(".pre-commit-config.yaml")
+
 
 # ---------- zip input ----------
 
