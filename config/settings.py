@@ -49,6 +49,12 @@ if BACKEND not in BACKENDS:
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").strip().rstrip("/")
 
+
+# ---------- dedup (I04 / A04) ----------
+EMBEDDINGS_ENABLED = os.getenv("CONTENTOS_EMBEDDINGS", "on").strip().lower() != "off"
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+DEDUP_THRESHOLD = 0.82   # angle vs past post similarity above this = duplicate
+ 
 # Create runtime folders on import so no module has to check first
 for _d in (DATA_DIR, CACHE_DIR, RUNS_DIR, OBSIDIAN_DIR, OUTPUTS_DIR, VOICE_DIR):
     _d.mkdir(parents=True, exist_ok=True)
