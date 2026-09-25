@@ -48,22 +48,26 @@ class BaseAgent:
             return self._record("failed", 0, f"missing context keys: {missing}")
 
         t0 = time.perf_counter()
-        status, error = "failed", None
+        status, error, output = "failed", None, None
         try:
             output = self.run(ctx)
-            # Guard: output must survive json.dumps. Raw bytes (e.g. embedding
-            # blobs) corrupted the run context in the first build.
-            json.dumps(output)
-            ctx[self.produces] = output
-            status = "success"
         except SkipStage as e:
             status, error = "skipped", str(e) or None
         except AgentError as e:
             error = str(e)
-        except TypeError as e:
-            error = f"output not JSON-serializable: {e}"
         except Exception as e:  # a real bug: keep the type so it's debuggable
             error = f"{type(e).__name__}: {e}"
+        else:
+            # Guard: output must survive json.dumps. Raw bytes (e.g. embedding
+            # blobs) corrupted the run context in the first build.
+            # Checked separately so a bug inside run() is never mislabelled.
+            try:
+                json.dumps(output)
+            except (TypeError, ValueError) as e:
+                error = f"output not JSON-serializable: {e}"
+            else:
+                ctx[self.produces] = output
+                status = "success"
         ms = int((time.perf_counter() - t0) * 1000)
         return self._record(status, ms, error)
 

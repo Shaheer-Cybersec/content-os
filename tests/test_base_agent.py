@@ -25,6 +25,10 @@ class Skips(Echo):
     def run(self, ctx):
         raise SkipStage("no critic flags")
 
+class TypeBug(Echo):
+    def run(self, ctx):
+        return len(5)          # TypeError inside run(), not a JSON problem
+
 class Buggy(Echo):
     def run(self, ctx):
         return 1 / 0
@@ -64,6 +68,13 @@ def test_unexpected_bug_is_caught_with_type():
     rec = Buggy().execute({"text": "hi"})
     assert rec["status"] == "failed"
     assert rec["error"].startswith("ZeroDivisionError")
+
+
+def test_type_error_in_run_not_mislabelled_as_json():
+    rec = TypeBug().execute({"text": "hi"})
+    assert rec["status"] == "failed"
+    assert rec["error"].startswith("TypeError")
+    assert "JSON" not in rec["error"]
 
 
 # ---------- Evidence schema ----------
