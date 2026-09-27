@@ -5,7 +5,7 @@ Input : ctx["repo"]         A01 output (tree + commits, for the final evidence c
         ctx["run_id"]
         ctx["final_draft"]  A09 output {"text", "claims": [Evidence]}
                             (falls back to ctx["draft"] when A09 was skipped)
-        ctx["visual_plan"]  optional, A06 output [{"shot", "how"}]
+        ctx["visual_plan"]  optional, A06 output {"shots": [{"shot", "how"}]} (or a plain list)
         ctx["chosen_angle"] optional {"title"}
 Output: ctx["package"]      {"path", "chars", "words", "hashtags", "links",
                              "warnings", "evidence_checked", "post"}
@@ -104,8 +104,10 @@ class Packager(BaseAgent):
         repo, run_id = ctx["repo"], ctx["run_id"]
         name = f"{datetime.now():%Y-%m-%d}-{repo['repo']}-{run_id}.md"
         path = OUTPUTS_DIR / name
+        vp = ctx.get("visual_plan") or []
+        shots = vp.get("shots", []) if isinstance(vp, dict) else vp   # A06 dict or plain list
         path.write_text(render(repo, run_id, ctx.get("chosen_angle"), text, s, warnings,
-                               claims, ctx.get("visual_plan") or []), encoding="utf-8")
+                               claims, shots), encoding="utf-8")
 
         return {
             "path": path.as_posix(),

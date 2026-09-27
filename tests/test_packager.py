@@ -70,3 +70,14 @@ def test_no_draft_fails_cleanly():
 def test_post_handed_on_for_approval():
     _, pkg = run(ctx())
     assert set(pkg["post"]) == {"text", "evidence"}
+
+
+    
+def test_accepts_a06_dict_shape(out_dir):
+    c = ctx()
+    c["visual_plan"] = {"shots": [{"shot": "decode in terminal", "how": "run two lines"}],
+                        "rationale": "r", "dropped": []}
+    rec, pkg = run(c)
+    assert rec["status"] == "success"
+    body = (out_dir / pkg["path"].split("/")[-1]).read_text(encoding="utf-8")
+    assert "- [ ] decode in terminal: run two lines" in body
