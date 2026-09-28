@@ -32,7 +32,7 @@ from core.schemas import Evidence
 
 PROMPT_FILE = Path(__file__).with_name("prompt.md")
 VOICE_FILE = VOICE_DIR / "voice_samples.md"
-VOICE_CHARS = 4_000
+VOICE_CHARS = 8_000
 MIN_LEN, MAX_LEN = 700, 1800
 MAX_TAGS = 3
 GENERIC_TAGS = {"#tech", "#technology", "#motivation", "#success", "#linkedin",
