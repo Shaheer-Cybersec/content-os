@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content OS</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#111821; --panel2:#16202b; --line:#223041; --line2:#2c3d52;
+  --text:#e6edf3; --muted:#8b9bb0; --dim:#5d6d82;
+  --accent:#3ee6a8; --accent2:#1fb888; --blue:#58a6ff; --amber:#f2b441; --red:#ff6b6b;
+  --violet:#b692ff; --slate:#6b7a90;
+  --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --r:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);display:flex;overflow:hidden}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px}
+input,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:10px 12px;width:100%}
+input:focus,textarea:focus{outline:2px solid var(--accent2);border-color:transparent}
+a{color:var(--blue)}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)} .dim{color:var(--dim)}
+.btn{background:var(--accent);color:#04150e;font-weight:600;padding:9px 16px}
+.btn:hover{background:#63f0bd}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line2)}
+.btn.ghost:hover{border-color:var(--muted)}
+.btn.danger{background:transparent;color:var(--red);border:1px solid #5a2a2e}
+.btn.danger:hover{background:#2a1417}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;gap:6px;font:12px var(--mono);padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chip.ev{color:#9fc3ff;border-color:#23405f;background:#0f1d2c}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+h1,h2,h3{margin:0;font-weight:650}
+h2{font-size:18px} h3{font-size:14px;letter-spacing:.02em}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--blue);animation:sp .8s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---- sidebar ---- */
+aside{width:280px;min-width:280px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.brand{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+.brand b{font:700 17px var(--mono);color:var(--accent)} .brand span{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.side-sec{padding:14px 12px 6px 18px;color:var(--dim);font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+#runs{flex:1;overflow:auto;padding:0 8px}
+.run-item{padding:9px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+.run-item:hover{background:var(--panel2)} .run-item.active{background:#15283a}
+.run-item .t{font:12.5px var(--mono);word-break:break-all} .run-item .s{font-size:12px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none;background:var(--slate)}
+.dot.done{background:var(--accent)} .dot.gate{background:var(--violet);box-shadow:0 0 0 3px #b692ff33}
+.dot.waiting{background:var(--amber);box-shadow:0 0 0 3px #f2b44133} .dot.failed{background:var(--red)}
+.dot.running{background:var(--blue);animation:pulse 1.2s infinite} .dot.rejected{background:#44505f}
+@keyframes pulse{50%{box-shadow:0 0 0 5px #58a6ff22}}
+.mem{margin:10px 12px 14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.mem .n{font:700 20px var(--mono)} .mem .l{font-size:11px;color:var(--dim)}
+
+/* ---- main ---- */
+main{flex:1;overflow:auto;padding:24px 28px 60px}
+.wrap{max-width:1440px;margin:0 auto}
+.hero{padding:26px 0 10px}
+.hero h1{font-size:26px} .hero p{color:var(--muted);margin:6px 0 0}
+.drop{margin-top:22px;border:2px dashed var(--line2);border-radius:16px;padding:44px 20px;text-align:center;background:linear-gradient(180deg,#0f1822,#0c131b);transition:.15s}
+.drop.over{border-color:var(--accent);background:#0f2019}
+.drop .big{font-size:18px;font-weight:600} .drop .sub{color:var(--muted);margin-top:6px}
+.or{display:flex;align-items:center;gap:12px;color:var(--dim);margin:22px 0;font-size:12px}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:26px}
+.how .card b{display:block;margin-bottom:4px}
+
+.head{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}
+.head h1{font:700 20px var(--mono)} .head .src{color:var(--muted);font-size:13px;word-break:break-all}
+.pill{font:600 12px var(--mono);padding:4px 10px;border-radius:999px;border:1px solid var(--line2);text-transform:uppercase;letter-spacing:.05em}
+.pill.done{color:var(--accent);border-color:#1d5c46} .pill.gate{color:var(--violet);border-color:#4b3b73}
+.pill.waiting{color:var(--amber);border-color:#6b5320} .pill.failed{color:var(--red);border-color:#6b2a2e}
+.pill.running{color:var(--blue);border-color:#264a73} .pill.rejected{color:var(--muted)}
+
+/* ---- pipeline rail ---- */
+.rail-wrap{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 16px 12px;margin-bottom:18px}
+.rail{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:8px 10px}
+.plbl{font:600 11px var(--mono);color:var(--dim);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--line);padding:0 2px 4px;white-space:nowrap;overflow:hidden}
+.plbl.you{color:var(--violet);border-color:#4b3b73}
+.node{min-height:84px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);padding:8px;cursor:pointer;position:relative;transition:.15s;min-width:0}
+.node:not(:last-child):after{content:"";position:absolute;right:-11px;top:40px;width:10px;height:2px;background:var(--line2)}
+.node.lit:after{background:var(--accent2)}
+.node:hover{border-color:var(--muted);transform:translateY(-1px)}
+.node.sel{outline:2px solid var(--blue);outline-offset:2px}
+.node .top{display:flex;justify-content:space-between;align-items:center;gap:2px;flex-wrap:wrap}
+.node .tag{font:700 12px var(--mono);color:var(--muted)}
+.node .who{font:9.5px var(--mono);padding:0 4px;border-radius:4px;background:var(--panel2);color:var(--dim)}
+.node .who.claude{color:#e9a86b} .node .who.you{color:var(--violet)}
+.node .nm{font-size:11.5px;letter-spacing:-.01em;font-weight:600;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .st{font:10.5px/1.3 var(--mono);margin-top:5px;color:var(--dim)}
+.node.success,.node.done{border-color:#1d5c46;background:#0c1a15} .node.success .tag,.node.done .tag{color:var(--accent)}
+.node.running{border-color:var(--blue);background:#0d1826;box-shadow:0 0 0 3px #58a6ff1a}
+.node.waiting{border-color:var(--amber);background:#1d170b;box-shadow:0 0 0 3px #f2b4411a}
+.node.gate{border-color:var(--violet);background:#161026;box-shadow:0 0 0 3px #b692ff1f;animation:glow 1.6s infinite}
+@keyframes glow{50%{box-shadow:0 0 0 6px #b692ff10}}
+.node.failed{border-color:var(--red);background:#1e0f11} .node.skipped{border-style:dashed;opacity:.75}
+.node.cancelled{opacity:.35}
+.rail-scroll{overflow-x:auto} .rail-scroll .rail{min-width:980px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--dim)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* ---- action + detail ---- */
+.action{margin-bottom:18px}
+.action.card{border-width:1px 1px 1px 4px}
+.action.waiting{border-left-color:var(--amber)} .action.gate{border-left-color:var(--violet)}
+.action.failed{border-left-color:var(--red)} .action.done{border-left-color:var(--accent)} .action.running{border-left-color:var(--blue)}
+.steps{counter-reset:s;display:grid;gap:10px;margin-top:12px}
+.step{display:flex;gap:12px;align-items:flex-start}
+.step:before{counter-increment:s;content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:grid;place-items:center;font:12px var(--mono);color:var(--muted)}
+textarea.resp{min-height:130px;font:12.5px var(--mono)}
+.angles{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px}
+.angle{background:var(--bg);border:1px solid var(--line2);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.angle:hover{border-color:var(--violet)}
+.angle .ttl{font-weight:650} .angle .hook{color:#cfe3ff;font-style:italic;border-left:3px solid #2d4a6b;padding-left:10px}
+.bar{height:6px;background:var(--panel2);border-radius:99px;overflow:hidden} .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.review{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin-top:14px}
+.li{background:#fff;color:#1d2226;border-radius:10px;padding:14px 16px;font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif}
+.li .who2{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.li .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#0a66c2,#3ee6a8);display:grid;place-items:center;color:#fff;font-weight:700}
+.li .nm2{font-weight:600} .li .hl{font-size:12px;color:#666}
+.li .body{white-space:pre-wrap;word-wrap:break-word}
+.li .body .tag2{color:#0a66c2;font-weight:600}
+.meter{height:8px;background:var(--panel2);border-radius:99px;position:relative;overflow:hidden;margin:6px 0 2px}
+.meter i{position:absolute;top:0;left:0;bottom:0;background:var(--accent)}
+.meter b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--amber)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px} .kv div:nth-child(odd){color:var(--dim)}
+.flag{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.sev{font:700 11px var(--mono);text-transform:uppercase;padding:1px 7px;border-radius:6px}
+.sev.block{background:#3a1216;color:var(--red)} .sev.fix{background:#33270c;color:var(--amber)} .sev.nit{background:var(--panel2);color:var(--muted)}
+.q{font-family:var(--mono);font-size:12.5px;color:#cfe3ff;background:#0f1d2c;border-radius:6px;padding:2px 6px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tab{background:transparent;color:var(--muted);border:1px solid var(--line);padding:5px 10px;font:12px var(--mono)}
+.tab.on{color:var(--text);border-color:var(--blue);background:#0d1826}
+.tab:disabled{opacity:.35}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile .n{font:700 18px var(--mono);word-break:break-all} .tile .l{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.find{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+.find b{display:block;margin-bottom:4px}
+.find p{margin:0 0 8px;color:#c4cfdc;font-size:13px}
+.sect{margin:16px 0 8px;font:600 12px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.beats{display:grid;gap:8px}
+.beat{display:flex;gap:10px} .beat span{flex:none;width:22px;height:22px;border-radius:50%;background:#15283a;color:var(--blue);display:grid;place-items:center;font:12px var(--mono)}
+pre.json{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:480px;font:12px/1.45 var(--mono);color:#c4cfdc;margin:0}
+.tree{columns:2;font:12px/1.6 var(--mono);color:var(--muted);max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.score5{display:grid;grid-template-columns:70px 1fr 26px;gap:8px;align-items:center;font-size:13px}
+.toast{position:fixed;bottom:20px;right:20px;background:#2a1417;border:1px solid #6b2a2e;color:#ffd0d0;padding:12px 16px;border-radius:10px;max-width:460px;z-index:9;display:none}
+.toast.ok{background:#0c1a15;border-color:#1d5c46;color:#bff5dd}
+.empty{color:var(--dim);padding:10px 0}
+@media (max-width:900px){aside{display:none}.review{grid-template-columns:1fr}.how{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><b>&gt;_ content-os</b><span>repo in, grounded LinkedIn post out</span></div>
+  <div style="padding:14px 12px 4px"><button class="btn" style="width:100%" onclick="go(null)">+ New run</button></div>
+  <div class="side-sec">Runs</div>
+  <div id="runs"></div>
+  <div class="side-sec">Memory</div>
+  <div class="mem" id="mem"></div>
+</aside>
+
+<main><div class="wrap" id="view"></div></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const S = {runs: [], cur: null, d: null, sel: null, memory: null, timer: null, promptCache: {}};
+
+async function api(path, opt = {}) {
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+const post = (p, body) => api(p, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
+function toast(msg, ok) { const t = $("#toast"); t.textContent = msg; t.className = "toast" + (ok ? " ok" : ""); t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", ok ? 2500 : 7000); }
+
+function go(runId) {
+  S.cur = runId; S.d = null; S.sel = null;
+  history.replaceState(null, "", runId ? "#" + runId : "#");
+  render(); refresh();
+}
+
+async function refresh() {
+  clearTimeout(S.timer);
+  try {
+    S.runs = await api("/api/runs");
+    S.memory = await api("/api/memory");
+    if (S.cur) {
+      try { S.d = await api("/api/runs/" + encodeURIComponent(S.cur)); }
+      catch (e) { S.d = {starting: true}; }
+    }
+  } catch (e) { toast("Dashboard server not reachable: " + e.message); }
+  render();
+  const active = S.d && (S.d.busy || S.d.starting || S.d.summary?.status === "running");
+  const anyBusy = S.runs.some(r => r.busy);
+  S.timer = setTimeout(refresh, active || anyBusy ? 1200 : 5000);
+}
+
+/* ---------------- sidebar ---------------- */
+function statusKey(r) { return r.busy ? "running" : (r.gate ? "gate" : r.status); }
+function renderSide() {
+  $("#runs").innerHTML = S.runs.length ? S.runs.map(r => {
+    const k = statusKey(r);
+    const label = r.busy ? "working" : r.gate ? (r.gate === "G1" ? "pick an angle" : "review post") : r.status;
+    return `<div class="run-item ${r.run_id === S.cur ? "active" : ""}" onclick="go('${esc(r.run_id)}')">
+      <span class="dot ${k}"></span><div><div class="t">${esc(r.run_id)}</div>
+      <div class="s">${esc(r.repo || "")} · ${esc(label)}</div></div></div>`;
+  }).join("") : `<div class="empty" style="padding:6px 12px">No runs yet</div>`;
+  const m = S.memory?.counts || {posts: 0, queued: 0, repos: 0};
+  $("#mem").innerHTML = `<div class="row" style="justify-content:space-between">
+    <div><div class="n">${m.posts}</div><div class="l">posts</div></div>
+    <div><div class="n">${m.queued}</div><div class="l">queued angles</div></div>
+    <div><div class="n">${m.repos}</div><div class="l">sources</div></div></div>
+    <div style="margin-top:8px"><a href="#" onclick="showMemory();return false" style="font-size:12px">open memory</a></div>`;
+}
+
+/* ---------------- new run ---------------- */
+function renderNew() {
+  return `<div class="hero"><h1>Turn a repo into a grounded LinkedIn post</h1>
+    <p>Drop a GitHub "Download ZIP", or paste a repo URL. Every claim in the post is tied to a real file and commit.</p></div>
+    <div class="drop" id="drop">
+      <div class="big">Drop a .zip here</div>
+      <div class="sub">or <a href="#" onclick="$('#file').click();return false">choose a file</a> &nbsp;·&nbsp; GitHub: Code → Download ZIP</div>
+      <input type="file" id="file" accept=".zip" style="display:none" onchange="uploadFile(this.files[0])">
+    </div>
+    <div class="or">OR PASTE A URL</div>
+    <div class="row"><input id="src" class="grow mono" placeholder="https://github.com/Shaheer-Cybersec/damn-vulnerable-rag" style="flex:1;min-width:260px"
+      onkeydown="if(event.key==='Enter')startUrl()"><button class="btn" onclick="startUrl()">Start run</button></div>
+    <div class="how">
+      <div class="card"><b>1 · Understand</b><span class="muted">Code reads the repo. Claude analyses it and proposes angles, deduped against your past posts.</span></div>
+      <div class="card"><b>2 · Write</b><span class="muted">You pick an angle. Claude plans, writes, critiques and revises. Code checks every claim.</span></div>
+      <div class="card"><b>3 · Remember</b><span class="muted">You approve. The post and the unused angles go to memory for next time.</span></div>
+    </div>`;
+}
+function wireDrop() {
+  const d = $("#drop"); if (!d) return;
+  ["dragenter", "dragover"].forEach(e => d.addEventListener(e, ev => { ev.preventDefault(); d.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(e => d.addEventListener(e, ev => { ev.preventDefault(); d.classList.remove("over"); }));
+  d.addEventListener("drop", ev => { const f = ev.dataTransfer.files[0]; if (f) uploadFile(f); });
+}
+async function uploadFile(f) {
+  if (!f) return;
+  if (!f.name.toLowerCase().endsWith(".zip")) return toast("Only .zip files. On GitHub: Code → Download ZIP.");
+  toast(`Uploading ${f.name} (${(f.size / 1048576).toFixed(1)} MB)…`, true);
+  try { const r = await api("/api/upload?name=" + encodeURIComponent(f.name), {method: "POST", body: f}); go(r.run_id); }
+  catch (e) { toast(e.message); }
+}
+async function startUrl() {
+  const s = $("#src").value.trim(); if (!s) return toast("Paste a GitHub URL or zip URL first.");
+  try { const r = await post("/api/runs", {source: s}); go(r.run_id); } catch (e) { toast(e.message); }
+}
+
+/* ---------------- pipeline rail ---------------- */
+const PHASES = [["Understand", ["A01", "A02", "A03", "A04"]], ["You", ["G1"]], ["Write", ["A05", "A06", "A07", "A08", "A09", "A10"]], ["You", ["G2"]], ["Remember", ["A11"]]];
+const SHORT = {A01:"ingest",A02:"memory",A03:"analyze",A04:"angles",G1:"pick",A05:"strategy",A06:"visuals",A07:"write",A08:"critique",A09:"revise",A10:"package",G2:"approve",A11:"save"};
+const STLABEL = {pending: "pending", running: "running…", success: "done", done: "done", waiting: "Claude's turn", gate: "your turn", failed: "failed", skipped: "skipped", cancelled: "—"};
+function renderRail(stages) {
+  const lit = st => ["success", "done", "skipped"].includes(st);
+  const labels = PHASES.map(([lbl, tags]) => `<div class="plbl ${lbl === "You" ? "you" : ""}" style="grid-column:span ${tags.length}">${lbl}</div>`).join("");
+  const nodes = stages.map(s => {
+    const ms = s.ms != null && s.status !== "waiting" ? ` · ${s.ms < 1000 ? s.ms + "ms" : (s.ms / 1000).toFixed(1) + "s"}` : "";
+    return `<div class="node ${s.status} ${lit(s.status) ? "lit" : ""} ${S.sel === s.tag ? "sel" : ""}" onclick="selTag('${s.tag}')" title="${esc(s.tag + " " + s.name + ": " + s.what)}">
+      <div class="top"><span class="tag">${s.tag}</span><span class="who ${s.who}">${s.who}</span></div>
+      <div class="nm">${SHORT[s.tag]}</div>
+      <div class="st">${s.status === "running" ? '<span class="spin" style="width:9px;height:9px;vertical-align:-1px"></span> ' : ""}${STLABEL[s.status] || s.status}${ms}</div></div>`;
+  }).join("");
+  return `<div class="rail-wrap"><div class="rail-scroll"><div class="rail">${labels}${nodes}</div></div><div class="legend">
+    <span><i style="background:var(--accent)"></i>done</span><span><i style="background:var(--blue)"></i>running</span>
+    <span><i style="background:var(--amber)"></i>Claude's turn</span><span><i style="background:var(--violet)"></i>your turn</span>
+    <span><i style="background:var(--red)"></i>failed</span><span class="dim">click any step to see its output</span></div></div>`;
+}
+function selTag(t) { S.sel = S.sel === t ? null : t; render(); }
+
+/* ---------------- action panel ---------------- */
+function renderAction(d) {
+  const s = d.summary, st = d.stages;
+  if (d.error) return `<div class="card action failed"><h3 style="color:var(--red)">Last action failed</h3><p class="mono" style="margin:8px 0 12px">${esc(d.error)}</p>
+    <button class="btn ghost" onclick="act('resume')">Retry</button></div>`;
+  if (d.busy || s.status === "running") {
+    const cur = st.find(x => x.status === "running") || st.find(x => x.status === "pending");
+    return `<div class="card action running"><div class="row"><span class="spin"></span><h3>Working: ${esc(cur?.tag || "")} ${esc(cur?.name || "")}</h3></div>
+      <p class="muted" style="margin:6px 0 0">${esc(cur?.what || "")}. This page updates by itself.</p></div>`;
+  }
+  if (s.status === "waiting") return renderWaiting(d);
+  if (s.gate === "G1") return renderG1(s);
+  if (s.gate === "G2") return renderG2(d);
+  if (s.status === "failed") {
+    const f = st.find(x => x.status === "failed");
+    return `<div class="card action failed"><h3 style="color:var(--red)">${esc(f?.tag)} ${esc(f?.name)} failed</h3>
+      <p class="mono" style="margin:8px 0 12px;white-space:pre-wrap">${esc(s.detail || f?.error || "")}</p>
+      ${d.pending ? `<p class="muted">If this was Claude's answer, paste a corrected one below. Otherwise fix the cause and retry.</p>${handoffBox(d)}` : ""}
+      <button class="btn ghost" onclick="act('resume')">Retry this step</button></div>`;
+  }
+  if (s.status === "done") {
+    const m = s.memory_write || {};
+    return `<div class="card action done"><h3 style="color:var(--accent)">Saved to memory: post ${esc(m.post_id)}</h3>
+      <div class="tiles" style="margin-top:12px"><div class="tile"><div class="n">${esc(m.angles_queued)}</div><div class="l">angles queued</div></div>
+      <div class="tile"><div class="n">${m.embedded ? "yes" : "no"}</div><div class="l">embedded for dedup</div></div></div>
+      <p class="muted" style="margin:0">Package: <span class="mono">${esc(d.outputs.A10?.path || "")}</span>. Take the screenshots on its checklist, then publish on LinkedIn.</p></div>`;
+  }
+  if (s.status === "rejected") return `<div class="card action"><h3>Rejected</h3><p class="muted" style="margin:6px 0 0">${esc(s.note)}. Nothing was saved to memory.</p></div>`;
+  return "";
+}
+
+function handoffBox(d) {
+  const [tag, name] = d.pending;
+  return `<div class="steps">
+    <div class="step"><div class="grow"><b>Copy the prompt</b> <span class="muted">(${esc(tag)} ${esc(name)})</span><br>
+      <div class="row" style="margin-top:6px"><button class="btn" onclick="copyPrompt()">Copy prompt</button>
+      <button class="btn ghost" onclick="viewPrompt()">View prompt</button>
+      <span class="mono dim" style="font-size:12px">data/runs/${esc(d.summary.run_id)}/${esc(name)}.prompt.md</span></div></div></div>
+    <div class="step"><div class="grow"><b>Get Claude's answer</b><br><span class="muted">Paste the prompt into a Claude chat and copy the JSON it returns.
+      Or, in a Claude chat linked to this computer, say <span class="q">resume content os ${esc(d.summary.run_id)}</span> and Claude writes the answer file itself.</span></div></div>
+    <div class="step"><div class="grow"><b>Paste the JSON answer</b>
+      <textarea class="resp" id="resp" placeholder='{"summary": "...", ...}' style="margin-top:6px"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" onclick="sendResp()">Submit and continue</button>
+      <button class="btn ghost" onclick="act('resume')">I saved the file myself: resume</button></div></div></div></div>`;
+}
+function renderWaiting(d) {
+  const [tag, name] = d.pending || ["", ""];
+  return `<div class="card action waiting"><div class="row"><h3 style="color:var(--amber)">Claude's turn: ${esc(tag)} ${esc(name)}</h3>
+    <span class="chip">no API: you hand the prompt to Claude</span></div>${handoffBox(d)}<div id="promptView"></div></div>`;
+}
+function renderG1(s) {
+  return `<div class="card action gate"><h3 style="color:var(--violet)">G1 · Pick the angle for this post</h3>
+    <p class="muted" style="margin:4px 0 0">Ranked by score. Near-duplicates of your past posts are already removed.</p>
+    <div class="angles">${s.angles.map(a => `<div class="angle">
+      <div class="row"><span class="chip">#${a.n}</span><span class="chip">${esc(a.post_type)}</span><span class="grow"></span><span class="mono" style="font-size:12px">${(a.score ?? 0).toFixed(2)}</span></div>
+      <div class="bar"><i style="width:${Math.round((a.score || 0) * 100)}%"></i></div>
+      <div class="ttl">${esc(a.title)}</div><div class="hook">${esc(a.hook)}</div>
+      <div style="margin-top:auto"><button class="btn" onclick="pick(${a.n})">Use this angle</button></div></div>`).join("")}</div></div>`;
+}
+function fmtPost(t) {
+  return esc(t).replace(/(^|\s)(#[A-Za-z0-9_]+)/g, '$1<span class="tag2">$2</span>');
+}
+function renderG2(d) {
+  const p = d.summary.package, o = d.outputs, target = o.A05?.length_target || 1300;
+  const cr = o.A08 || {}, rv = o.A09;
+  const pct = Math.min(100, p.chars / 3000 * 100), tp = Math.min(100, target / 3000 * 100);
+  return `<div class="card action gate"><div class="row"><h3 style="color:var(--violet)">G2 · Review the post</h3><span class="grow"></span>
+    <button class="btn danger" onclick="rejectRun()">Reject</button><button class="btn" onclick="approveRun()">Approve and save to memory</button></div>
+    <div class="review">
+      <div><div class="li"><div class="who2"><div class="av">SH</div><div><div class="nm2">Shaheer Hussain</div>
+        <div class="hl">AI Security &amp; Penetration Tester · now</div></div></div><div class="body">${fmtPost(p.text)}</div></div></div>
+      <div style="display:grid;gap:12px;align-content:start">
+        <div class="card"><div class="row"><b>Length</b><span class="grow"></span><span class="mono">${p.chars} / 3000</span></div>
+          <div class="meter"><i style="width:${pct}%"></i><b style="left:${tp}%"></b></div>
+          <div class="dim" style="font-size:12px">amber mark = planned length (${target})</div></div>
+        <div class="card"><div class="row"><b>Critic</b><span class="chip">${esc(cr.verdict || "?")}</span></div>
+          ${scores(cr.scores)}
+          ${rv ? `<div class="sect" style="margin-top:12px">Reviser</div>${(rv.changes || []).map(c => `<div style="font-size:12.5px;margin-bottom:6px"><span class="chip">${esc(c.action)}</span> <span class="q">${esc(c.quote.slice(0, 60))}</span></div>`).join("")}
+            <div class="${(p.unresolved || []).length ? "" : "dim"}" style="font-size:12.5px">${(p.unresolved || []).length} unresolved</div>` : ""}
+        </div>
+        ${p.warnings.length ? `<div class="card" style="border-color:#6b5320"><b style="color:var(--amber)">Warnings</b>${p.warnings.map(w => `<div style="font-size:13px">${esc(w)}</div>`).join("")}</div>` : ""}
+        <div class="card"><b>Screenshots to take</b>${(o.A06?.shots || []).map(x => `<div style="font-size:13px;margin-top:6px">□ ${esc(x.shot)} ${x.file_path ? `<span class="chip ev">${esc(x.file_path)} ${esc(x.lines || "")}</span>` : ""}</div>`).join("") || '<div class="dim">none planned</div>'}</div>
+        <div class="card"><b>Evidence (${(o.A09 || o.A07)?.claims?.length || 0} claims, all verified)</b>
+          ${((o.A09 || o.A07)?.claims || []).map(c => `<div style="font-size:12.5px;margin-top:6px">${esc(c.claim)}<br><span class="chip ev">${esc(c.source_path)}@${esc(c.source_ref)}</span></div>`).join("")}</div>
+      </div></div></div>`;
+}
+function scores(sc) {
+  if (!sc) return "";
+  return `<div style="display:grid;gap:6px;margin-top:10px">${Object.entries(sc).map(([k, v]) =>
+    `<div class="score5"><span class="muted">${esc(k)}</span><div class="bar"><i style="width:${v * 20}%"></i></div><span class="mono">${v}/5</span></div>`).join("")}</div>`;
+}
+
+/* ---------------- stage details ---------------- */
+const ev = e => `<span class="chip ev">${esc(e.source_path)}@${esc(e.source_ref)}</span>`;
+const DETAIL = {
+  A01: r => `<div class="tiles">
+      <div class="tile"><div class="n">${esc(r.owner)}/${esc(r.repo)}</div><div class="l">repo</div></div>
+      <div class="tile"><div class="n">${esc(r.file_count)}</div><div class="l">files</div></div>
+      <div class="tile"><div class="n">${esc((r.head_sha || "").slice(0, 7))}</div><div class="l">head commit</div></div>
+      <div class="tile"><div class="n">${esc(r.source_type)}</div><div class="l">source${r.cache_hit ? " · cached" : ""}</div></div></div>
+    ${r.languages ? `<div class="row" style="margin-bottom:12px">${Object.entries(r.languages).slice(0, 10).map(([k, v]) => `<span class="chip">${esc(k)} ${esc(v)}</span>`).join("")}</div>` : ""}
+    <div class="sect">Key files read (${r.key_files.length})</div><div class="row">${r.key_files.map(k => `<span class="chip ev">${esc(k.path)} · ${k.chars}</span>`).join("")}</div>
+    <div class="sect">Recent commits</div>${(r.commits || []).map(c => `<div style="font-size:13px"><span class="mono dim">${esc((c.sha || "").slice(0, 7))}</span> ${esc(c.subject || c.message || "")}</div>`).join("") || '<div class="dim">none (zip without history)</div>'}
+    <div class="sect">File tree</div><div class="tree">${r.tree.map(esc).join("<br>")}</div>`,
+  A02: m => `<div class="tiles"><div class="tile"><div class="n">${m.past_post_count}</div><div class="l">past posts (for dedup)</div></div>
+      <div class="tile"><div class="n">${(m.queued_angles || []).length}</div><div class="l">queued angles, this repo</div></div></div>
+    ${(m.queued_angles || []).map(a => `<div style="font-size:13px">• ${esc(a.title)} <span class="dim">${a.score ?? ""}</span></div>`).join("")}`,
+  A03: a => `<p style="margin-top:0"><b>Summary.</b> ${esc(a.summary)}</p><p><b>Purpose.</b> ${esc(a.purpose)}</p>` +
+    ["components", "decisions", "security_notes", "limitations"].map(k => (a[k] || []).length ? `<div class="sect">${k.replace("_", " ")} (${a[k].length})</div>
+      <div class="grid2">${a[k].map(f => `<div class="find"><b>${esc(f.title)}</b><p>${esc(f.detail)}</p><div class="row">${f.evidence.map(ev).join("")}</div></div>`).join("")}</div>` : "").join("") +
+    (a.dropped?.length ? `<div class="sect">Dropped by I05 (${a.dropped.length})</div>${a.dropped.map(x => `<div class="mono dim" style="font-size:12px">${esc(JSON.stringify(x))}</div>`).join("")}` : ""),
+  A04: s => `<div class="tiles">${Object.entries(s.counts || {}).map(([k, v]) => `<div class="tile"><div class="n">${v}</div><div class="l">${esc(k)}</div></div>`).join("")}</div>
+    ${(s.angles || []).map((a, i) => `<div class="find" style="margin-bottom:8px;${a.dedup_status === "rejected" ? "opacity:.5" : ""}">
+      <div class="row"><span class="chip">${esc(a.post_type)}</span><span class="chip">${esc(a.dedup_status)}${a.max_similarity != null ? " · sim " + Number(a.max_similarity).toFixed(2) : ""}</span><span class="grow"></span><span class="mono">${Number(a.score).toFixed(2)}</span></div>
+      <b style="margin-top:6px">${esc(a.title)}</b><p>${esc(a.summary)}</p><div class="row">${a.evidence.map(ev).join("")}</div></div>`).join("")}`,
+  G1: a => `<div class="find"><b>${esc(a.title)}</b><p>${esc(a.summary)}</p><p class="muted">Hook: ${esc(a.hook)}</p></div>`,
+  A05: s => `<div class="tiles"><div class="tile"><div class="n">${esc(s.format)}</div><div class="l">format</div></div>
+      <div class="tile"><div class="n">${s.length_target}</div><div class="l">target chars</div></div>
+      <div class="tile"><div class="n">${s.voice_used ? "yes" : "no"}</div><div class="l">your voice used</div></div></div>
+    <div class="sect">Hook</div><div class="find"><b>${esc(s.hook)}</b></div>
+    <div class="sect">Beats</div><div class="beats">${s.beats.map((b, i) => `<div class="beat"><span>${i + 1}</span><div>${esc(b)}</div></div>`).join("")}</div>
+    <div class="sect">CTA</div><div>${esc(s.cta)}</div>
+    <div class="sect">Hashtags · evidence</div><div class="row">${s.hashtags.map(h => `<span class="chip">${esc(h)}</span>`).join("")} ${s.evidence.map(ev).join("")}</div>
+    <p class="muted" style="margin-top:12px">${esc(s.audience_note)}</p>`,
+  A06: v => `<p class="muted" style="margin-top:0">${esc(v.rationale)}</p><div class="grid2">${v.shots.map((s, i) => `<div class="find">
+      <div class="row"><span class="chip">${i + 1} · ${esc(s.kind)}</span><span class="chip">${s.minutes} min</span></div>
+      <b style="margin-top:6px">${esc(s.shot)}</b><p>${esc(s.how)}</p>${s.file_path ? `<span class="chip ev">${esc(s.file_path)} ${esc(s.lines || "")}</span>` : ""}</div>`).join("")}</div>
+    ${(v.dropped || []).length ? `<div class="sect">Dropped</div>${v.dropped.map(x => `<div class="dim">${esc(x.shot)}: ${esc(x.reason)}</div>`).join("")}` : ""}`,
+  A07: d => `<div class="tiles"><div class="tile"><div class="n">${d.chars}</div><div class="l">chars (target ${d.length_target})</div></div>
+      <div class="tile"><div class="n">${d.claims.length}</div><div class="l">claims</div></div><div class="tile"><div class="n">${(d.notes || []).length}</div><div class="l">notes for critic</div></div></div>
+    <div class="li"><div class="body">${fmtPost(d.text)}</div></div>
+    <div class="sect">Claims</div>${d.claims.map(c => `<div style="font-size:13px;margin-bottom:6px">${esc(c.claim)} ${ev(c)}</div>`).join("")}
+    ${(d.notes || []).map(n => `<div class="dim">note: ${esc(n)}</div>`).join("")}`,
+  A08: c => `<div class="row"><b>Verdict</b><span class="chip">${esc(c.verdict)}</span></div>${scores(c.scores)}
+    <div class="sect">Flags (${c.flags.length})</div><div style="display:grid;gap:8px">${c.flags.map(f => `<div class="flag">
+      <div class="row"><span class="sev ${f.severity}">${f.severity}</span><span class="chip">${esc(f.source)}</span></div>
+      <div style="margin-top:6px"><span class="q">${esc(f.quote)}</span></div><div style="margin-top:6px">${esc(f.issue)}</div>
+      <div class="muted" style="margin-top:4px">→ ${esc(f.suggestion)}</div></div>`).join("") || '<div class="dim">clean</div>'}</div>`,
+  A09: r => `<div class="tiles"><div class="tile"><div class="n">${r.chars}</div><div class="l">chars</div></div>
+      <div class="tile"><div class="n">${r.changes.filter(c => c.action === "applied").length}/${r.changes.length}</div><div class="l">flags applied</div></div>
+      <div class="tile"><div class="n">${r.unresolved.length}</div><div class="l">unresolved</div></div></div>
+    ${r.changes.map(c => `<div class="flag" style="margin-bottom:8px"><span class="chip">${esc(c.action)}</span> <span class="q">${esc(c.quote)}</span><div class="muted" style="margin-top:6px">${esc(c.note)}</div></div>`).join("")}
+    <div class="sect">Revised post</div><div class="li"><div class="body">${fmtPost(r.text)}</div></div>`,
+  A10: p => `<div class="tiles"><div class="tile"><div class="n">${p.chars}</div><div class="l">chars</div></div><div class="tile"><div class="n">${p.words}</div><div class="l">words</div></div>
+      <div class="tile"><div class="n">${p.hashtags}</div><div class="l">hashtags</div></div><div class="tile"><div class="n">${p.evidence_checked}</div><div class="l">evidence checked</div></div></div>
+    <div class="mono muted" style="font-size:12.5px;margin-bottom:10px">${esc(p.path)}</div>
+    ${S.d?.package_md ? `<pre class="json" style="white-space:pre-wrap">${esc(S.d.package_md)}</pre>` : ""}`,
+  A11: m => `<div class="tiles">${Object.entries(m).map(([k, v]) => `<div class="tile"><div class="n" style="font-size:14px">${esc(v)}</div><div class="l">${esc(k.replace(/_/g, " "))}</div></div>`).join("")}</div>`,
+};
+function renderDetail(d) {
+  const tags = ["A01", "A02", "A03", "A04", "G1", "A05", "A06", "A07", "A08", "A09", "A10", "A11"];
+  const avail = tags.filter(t => d.outputs[t]);
+  if (!avail.length) return "";
+  const sel = S.sel && d.outputs[S.sel] ? S.sel : avail[avail.length - 1];
+  const st = d.stages.find(s => s.tag === sel);
+  let body;
+  try { body = DETAIL[sel] ? DETAIL[sel](d.outputs[sel]) : ""; } catch (e) { body = ""; }
+  if (!body) body = `<pre class="json">${esc(JSON.stringify(d.outputs[sel], null, 2))}</pre>`;
+  return `<div class="card"><div class="tabs">${tags.map(t => `<button class="tab ${t === sel ? "on" : ""}" ${d.outputs[t] ? "" : "disabled"} onclick="selTag('${t}')">${t}</button>`).join("")}
+    <span class="grow"></span><button class="tab" onclick="rawJson('${sel}')">raw JSON</button></div>
+    <div class="row" style="margin-bottom:12px"><h2>${esc(sel)} · ${esc(st?.name || "")}</h2><span class="muted">${esc(st?.what || "")}</span></div>
+    <div id="detailBody">${body}</div></div>`;
+}
+function rawJson(t) { $("#detailBody").innerHTML = `<pre class="json">${esc(JSON.stringify(S.d.outputs[t], null, 2))}</pre>`; }
+
+/* ---------------- run view ---------------- */
+function renderRun() {
+  const d = S.d;
+  if (!d) return `<div class="empty"><span class="spin"></span> loading…</div>`;
+  if (d.starting) return `<div class="head"><div class="grow"><h1>${esc(S.cur)}</h1><div class="src">starting…</div></div><span class="pill running">starting</span></div>
+    <div class="card action running"><div class="row"><span class="spin"></span><h3>A01 is fetching the repo</h3></div></div>`;
+  const s = d.summary, k = d.busy ? "running" : s.gate ? "gate" : s.status;
+  const label = d.busy ? "working" : s.gate ? (s.gate === "G1" ? "your turn · G1" : "your turn · G2") : s.status === "waiting" ? "Claude's turn" : s.status;
+  return `<div class="head"><div class="grow"><h1>${esc(s.run_id)}</h1><div class="src">${esc(d.source)}</div></div><span class="pill ${k}">${esc(label)}</span></div>
+    ${renderRail(d.stages)}${renderAction(d)}${renderDetail(d)}`;
+}
+
+function render() {
+  renderSide();
+  const v = $("#view");
+  const typing = document.activeElement && ["resp", "src", "rejectReason"].includes(document.activeElement.id);
+  if (typing) return;                     // never wipe what you are typing
+  const keepResp = $("#resp")?.value, keepPrompt = $("#promptView")?.innerHTML;
+  v.innerHTML = S.cur ? renderRun() : renderNew();
+  if (keepResp && $("#resp")) $("#resp").value = keepResp;
+  if (keepPrompt && $("#promptView")) $("#promptView").innerHTML = keepPrompt;
+  wireDrop();
+}
+
+/* ---------------- actions ---------------- */
+async function act(a, body) {
+  try { await post(`/api/runs/${encodeURIComponent(S.cur)}/${a}`, body); toast("Working…", true); refresh(); }
+  catch (e) { toast(e.message); }
+}
+const pick = n => act("pick", {n});
+async function approveRun() { if (confirm("Approve this post and save it to memory? Future angles will be deduped against it.")) act("approve"); }
+async function rejectRun() { const r = prompt("Reason for rejecting (one line):", ""); if (r !== null) act("reject", {reason: r}); }
+async function getPrompt() { return api(`/api/runs/${encodeURIComponent(S.cur)}/prompt`); }
+async function copyPrompt() {
+  try { const p = await getPrompt(); await navigator.clipboard.writeText(p.text); toast(`Copied ${p.text.length.toLocaleString()} characters. Paste it into Claude.`, true); }
+  catch (e) { toast("Copy failed: " + e.message); }
+}
+async function viewPrompt() {
+  try { const p = await getPrompt(); $("#promptView").innerHTML = `<div class="sect">${esc(p.path)}</div><pre class="json" style="white-space:pre-wrap">${esc(p.text)}</pre>`; }
+  catch (e) { toast(e.message); }
+}
+async function sendResp() {
+  const t = $("#resp").value.trim(); if (!t) return toast("Paste Claude's JSON answer first.");
+  try { await post(`/api/runs/${encodeURIComponent(S.cur)}/response`, {text: t}); $("#resp").value = ""; $("#promptView").innerHTML = ""; toast("Answer saved, continuing…", true); refresh(); }
+  catch (e) { toast(e.message); }
+}
+function showMemory() {
+  S.cur = null; clearTimeout(S.timer);
+  const m = S.memory || {posts: [], queued: []};
+  $("#view").innerHTML = `<div class="hero"><h1>Memory</h1><p>What dedup compares new angles against, and angles saved for later runs.</p></div>
+    <div class="sect">Posts (${m.posts.length})</div><div style="display:grid;gap:8px">${m.posts.map(p => `<div class="find">
+      <div class="row"><span class="chip">#${p.id}</span><span class="chip">${esc(p.repo_id)}</span><span class="chip">${p.chars} chars</span><span class="chip">${p.embedded ? "embedded" : "no embedding"}</span></div>
+      <p style="margin-top:8px">${esc(p.preview)}…</p></div>`).join("") || '<div class="empty">none yet</div>'}</div>
+    <div class="sect">Queued angles (${m.queued.length})</div>${m.queued.map(a => `<div style="font-size:13px;margin-bottom:4px"><span class="mono dim">${Number(a.score || 0).toFixed(2)}</span> ${esc(a.title)} <span class="dim">· ${esc(a.repo_id)}</span></div>`).join("") || '<div class="empty">none yet</div>'}
+    <p style="margin-top:20px"><button class="btn ghost" onclick="go(null)">Back</button></p>`;
+  renderSide();
+}
+
+window.addEventListener("hashchange", () => { const h = decodeURIComponent(location.hash.slice(1)) || null; if (h !== S.cur) go(h); });
+S.cur = decodeURIComponent(location.hash.slice(1)) || null;
+render(); refresh();
+</script>
+</body>
+</html>
