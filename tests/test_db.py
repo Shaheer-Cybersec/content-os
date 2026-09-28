@@ -33,3 +33,11 @@ def test_status_values_checked(path):
     with pytest.raises(sqlite3.IntegrityError):
         with db.connect(path) as c:
             c.execute("INSERT INTO runs (id, repo_id, status) VALUES ('r1', 'a/b', 'maybe')")
+
+
+
+
+def test_journal_mode_truncate(path):
+    # Runner VM folders forbid deletes; DELETE journal mode fails there (R01)
+    with db.connect(path) as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "truncate"

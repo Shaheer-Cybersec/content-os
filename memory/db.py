@@ -61,12 +61,18 @@ CREATE TABLE IF NOT EXISTS posts (
 
 
 def connect(path: Path | str | None = None) -> sqlite3.Connection:
-    """Open the database. Rows behave like dicts; foreign keys are enforced."""
+    """Open the database. Rows behave like dicts; foreign keys are enforced.
+
+    journal_mode=TRUNCATE: SQLite's default (DELETE) deletes the journal file after
+    every commit. Folders shared into the Claude runner VM do not allow deletes, so
+    every write failed with 'disk I/O error'. TRUNCATE empties the journal instead;
+    it is just as safe and works on Windows and in the VM.
+    """
     conn = sqlite3.connect(path or DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = TRUNCATE")
     return conn
-
 
 def init(path: Path | str | None = None) -> None:
     """Create any missing tables. Existing data is never touched."""
