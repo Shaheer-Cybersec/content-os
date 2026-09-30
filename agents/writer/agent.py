@@ -11,7 +11,8 @@ Static checks after the model answers:
   - markdown the model slipped in (**bold**, `code` fences, # headings) is stripped
   - the plan's hashtags are appended if the model left them out
   - over 3,000 chars fails the stage (LinkedIn limit)
-  - notes[] records soft problems for the critic (A08): length off target, hook changed
+  - notes[] records soft problems for the critic (A08): length off target, hook changed,
+    claimed observations ("screenshot shows", "I tested") and absolutes ("always", "never")
 """
 from __future__ import annotations
 
@@ -82,6 +83,24 @@ def ensure_hashtags(text: str, tags: list[str]) -> str:
     return f"{text}\n\n{' '.join(missing)}" if missing else text
 
 
+OBSERVED_RE = re.compile(
+    r"\b(?:screenshot|screenshots|screen ?shot|output|terminal|demo)\b[^.\n]{0,25}\b(?:shows?|proves?|confirms?|demonstrates?)\b"
+    r"|\bI (?:ran|tested|measured|benchmarked|scanned|verified|reproduced|confirmed)\b"
+    r"|\bin my (?:tests?|testing|runs?)\b", re.I)
+QUANT_RE = re.compile(r"\b(?:always|never|every single|all of|in all cases|guaranteed)\b", re.I)
+
+
+def unbacked_language(text: str) -> list[str]:
+    """Phrases that claim an observation or an absolute the plan's evidence cannot back.
+    Soft: they go to the critic (A08) as notes, the writer is not failed for them."""
+    out = []
+    for m in OBSERVED_RE.finditer(text):
+        out.append(f'claims a result or run the evidence does not show: "{m.group(0).strip()}"')
+    for m in QUANT_RE.finditer(text):
+        out.append(f'absolute wording, check the evidence supports it: "{m.group(0)}"')
+    return out
+
+
 def review_notes(text: str, strategy: dict) -> list[str]:
     notes = []
     target = strategy.get("length_target") or 0
@@ -90,7 +109,7 @@ def review_notes(text: str, strategy: dict) -> list[str]:
     first = text.splitlines()[0].strip() if text else ""
     if strategy.get("hook") and first != strategy["hook"].strip():
         notes.append("first line differs from the planned hook")
-    return notes
+    return notes + unbacked_language(text)
 
 
 class Writer(BaseAgent):

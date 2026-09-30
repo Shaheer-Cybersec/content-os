@@ -81,3 +81,19 @@ def test_claude_backend_waits(monkeypatch, tmp_path):
     assert Writer().execute(ctx())["status"] == "waiting"
     prompt = (tmp_path / "t-a07" / "writer.prompt.md").read_text(encoding="utf-8")
     assert "POST PLAN" in prompt and "decode in terminal" in prompt
+
+
+def test_unbacked_language_is_flagged_for_the_critic():
+    from agents.writer.agent import unbacked_language
+    flags = unbacked_language("Screenshot below shows it firing on a JSON response.\n"
+                              "I tested it on three apps. It never checks context, always flags.")
+    joined = " | ".join(flags)
+    assert "Screenshot below shows" in joined and "I tested" in joined
+    assert '"never"' in joined and '"always"' in joined
+    assert unbacked_language("Screenshot below. The check matches the raw string.") == []
+
+
+def test_prompt_pins_the_reconx_failure_modes():
+    from agents.writer.agent import PROMPT_FILE
+    p = PROMPT_FILE.read_text(encoding="utf-8")
+    assert "never say what" in p and "do not upgrade quantifiers" in p and "reread every sentence" in p

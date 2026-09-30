@@ -88,7 +88,12 @@ def static_flags(text: str, notes: list[str]) -> list[dict]:
     if len(tags) > MAX_HASHTAGS:
         add("nit", " ".join(tags), f"{len(tags)} hashtags", f"keep {MAX_HASHTAGS} or fewer")
     for n in notes:
-        add("fix", "(whole post)", f"writer note: {n}", "address it in the revision")
+        if n.startswith("absolute wording"):          # heuristic word check: polish, not a revision trigger
+            q = re.search(r'"([^"]+)"', n)
+            add("nit", q.group(1) if q else "(whole post)", f"writer note: {n}",
+                "keep it only if the claims support the absolute")
+        else:
+            add("fix", "(whole post)", f"writer note: {n}", "address it in the revision")
     return flags
 
 

@@ -73,3 +73,12 @@ def test_claude_backend_waits(monkeypatch, tmp_path):
     assert Critic().execute(ctx())["status"] == "waiting"
     prompt = (tmp_path / "t-a08" / "critic.prompt.md").read_text(encoding="utf-8")
     assert "STATIC FLAGS" in prompt and "CLAIMS" in prompt
+
+
+def test_absolute_wording_note_is_only_a_nit_but_result_claims_still_fix():
+    from agents.critic.agent import static_flags
+    text = "The check never looks at context. " + "x" * 200
+    fl = static_flags(text, ['absolute wording, check the evidence supports it: "never"',
+                             'claims a result or run the evidence does not show: "I tested"'])
+    sev = {f["quote"]: f["severity"] for f in fl if f["issue"].startswith("writer note")}
+    assert sev["never"] == "nit" and sev["(whole post)"] == "fix"
