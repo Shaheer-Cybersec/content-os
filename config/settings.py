@@ -40,14 +40,18 @@ OUTPUTS_DIR = ROOT / "outputs"            # A10 finished post packages
 VOICE_DIR = ROOT / "memory" / "voice"     # L01 your real posts, gitignored
 
 # ---------- LLM backend ----------
-# claude = Claude does the LLM stages in chat/Cowork (file handoff, no API). Default.
-# mock   = fake outputs for tests. ollama = local model, kept for later.
-BACKENDS = ("claude", "mock", "ollama")
+# claude     = Claude does the LLM stages in chat/Cowork (file handoff, no API). Default.
+# claude_cli = the local Claude Code CLI ("claude -p") runs each stage automatically,
+#              using your logged-in Claude plan. No API key. Used by the dashboard's Auto mode.
+# mock       = fake outputs for tests. ollama = local model, kept for later.
+BACKENDS = ("claude", "claude_cli", "mock", "ollama")
 BACKEND = os.getenv("CONTENTOS_BACKEND", "claude").strip().lower()
 if BACKEND not in BACKENDS:
     raise ValueError(
         f"CONTENTOS_BACKEND={BACKEND!r} is not valid. Use one of: {', '.join(BACKENDS)}"
     )
+
+CLAUDE_BIN = os.getenv("CONTENTOS_CLAUDE_BIN", "claude").strip()   # path or name of Claude Code
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").strip().rstrip("/")
 

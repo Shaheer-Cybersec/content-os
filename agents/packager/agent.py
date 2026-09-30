@@ -7,9 +7,14 @@ Input : ctx["repo"]         A01 output (tree + commits, for the final evidence c
                             (falls back to ctx["draft"] when A09 was skipped)
         ctx["visual_plan"]  optional, A06 output {"shots": [{"shot", "how"}]} (or a plain list)
         ctx["chosen_angle"] optional {"title"}
-Output: ctx["package"]      {"path", "chars", "words", "hashtags", "links",
-                             "warnings", "evidence_checked", "post"}
-        and one markdown file in outputs/ that you read before approving.
+Output: ctx["package"]      {"path", "folder", "pdf", "chars", "words", "hashtags", "links",
+                             "warnings", "evidence_checked", "post", "kit"}
+        and in outputs/<repo>/<date>_<run>/  (built by core/report.py):
+              00_REPORT.pdf        ONE visual PDF with everything
+              00_START_HERE.md     file index + the 5 posting steps
+              01_caption.md  02_first_comment.md  03_graphic.png  04_alt_text.md
+              05_visuals.md  06_evidence.md  07_run_summary.md
+              copy-paste.html      one page with a Copy button per block
 
 Hard stops (the run fails, no file is written):
   - over LinkedIn's 3,000 character limit
@@ -24,11 +29,11 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import datetime
 
 from config.settings import OUTPUTS_DIR
 from core.base_agent import AgentError, BaseAgent
 from core.evidence import validate
+from core.report import HOW_TO_POST, build_folder, linkedin_kit, run_folder  # noqa: F401
 
 LINKEDIN_MAX_CHARS = 3000
 MAX_HASHTAGS = 5
@@ -43,31 +48,6 @@ def stats(text: str) -> dict:
         "hashtags": len(HASHTAG_RE.findall(text)),
         "links": len(URL_RE.findall(text)),
     }
-
-
-def render(repo: dict, run_id: str, angle: dict | None, text: str, s: dict,
-           warnings: list[str], claims: list[dict], shots: list[dict]) -> str:
-    title = (angle or {}).get("title") or "Untitled angle"
-    out = [
-        f"# {title}",
-        "",
-        f"- Repo: {repo['url']} @ `{repo['head_sha'][:12]}`",
-        f"- Run: `{run_id}`",
-        f"- Length: {s['chars']} / {LINKEDIN_MAX_CHARS} chars, {s['words']} words, "
-        f"{s['hashtags']} hashtags, {s['links']} links",
-        "",
-    ]
-    if warnings:
-        out += ["## Warnings", ""] + [f"- {w}" for w in warnings] + [""]
-    out += ["## Post (copy from here)", "", "```text", text, "```", ""]
-    out += ["## Screenshots to take", ""]
-    out += [f"- [ ] {v.get('shot', '?')}: {v.get('how', '')}".rstrip(": ") for v in shots] \
-        or ["- (none planned)"]
-    out += ["", "## Evidence (all verified against the repo)", "",
-            "| Claim | File | Commit |", "|---|---|---|"]
-    out += [f"| {c['claim']} | `{c['source_path']}` | `{c['source_ref']}` |" for c in claims] \
-        or ["| (no factual claims) | | |"]
-    return "\n".join(out) + "\n"
 
 
 class Packager(BaseAgent):
@@ -102,19 +82,21 @@ class Packager(BaseAgent):
             warnings.append(f"{s['hashtags']} hashtags. Keep it to {MAX_HASHTAGS} or fewer.")
 
         repo, run_id = ctx["repo"], ctx["run_id"]
-        name = f"{datetime.now():%Y-%m-%d}-{repo['repo']}-{run_id}.md"
-        path = OUTPUTS_DIR / name
-        vp = ctx.get("visual_plan") or []
-        shots = vp.get("shots", []) if isinstance(vp, dict) else vp   # A06 dict or plain list
-        path.write_text(render(repo, run_id, ctx.get("chosen_angle"), text, s, warnings,
-                               claims, shots), encoding="utf-8")
+        post = {"text": text, "evidence": claims}
+        folder = run_folder(OUTPUTS_DIR, repo, run_id)
+        built = build_folder(dict(ctx, package={"post": post, "warnings": warnings}), folder,
+                             records=ctx.get("_records"))
+        warnings += built["skipped"]
 
         return {
-            "path": path.as_posix(),
+            "path": (folder / "00_START_HERE.md").as_posix(),
+            "folder": folder.as_posix(),
+            "pdf": (folder / "00_REPORT.pdf").as_posix(),
             **s,
             "warnings": warnings,
             "evidence_checked": len(claims),
-            "post": {"text": text, "evidence": claims},   # G2 hands this to A11 on approval
+            "post": post,                                  # G2 hands this to A11 on approval
+            "kit": {**built["kit"], "dir": folder.as_posix()},
         }
 
 

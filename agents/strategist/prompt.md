@@ -17,3 +17,6 @@ Decide:
 - audience_note: one sentence on who reads this and what they already know.
 
 If VOICE SAMPLES are given, match their rhythm and formality in the hook and CTA.
+
+Also give confidence (0-1, honest) that this plan makes a strong post, and a 1-2 sentence
+rationale for the format and hook you chose. Both are shown to the author.

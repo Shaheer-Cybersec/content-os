@@ -6,15 +6,19 @@
 #   3. CONTENTOS_BACKEND       -> default for everything else (default: claude)
 #
 # Backends:
-#   claude  Claude does the stage in chat/Cowork (prompt file -> response file). DEFAULT.
+#   claude      Claude does the stage in chat/Cowork (prompt file -> response file). DEFAULT.
+#   claude_cli  Claude Code on this PC ("claude -p"), logged in with your Claude plan. Fully
+#               automatic; the dashboard's Auto mode. Uses claude_model per tier below.
 #   mock    fake outputs, validated against the schema. Tests only.
 #   ollama  local model. Kept for later; not used unless a stage is routed to it.
 #   (a future "claude_api" backend would slot in here without touching any agent)
 
 tiers:
   heavy:
-    ollama_model: "llama3.1:8b" # only read when a stage is routed to ollama
+    claude_model: "opus"          # claude_cli: alias or full model name
+    ollama_model: "llama3.1:8b"   # only read when a stage is routed to ollama
   mid:
+    claude_model: "opus"          # set to "sonnet" to spend less of your plan's usage
     ollama_model: "llama3.1:8b"
 
 stages: {}
@@ -23,5 +27,8 @@ stages: {}
 
 ollama:
   timeout_s: 300
-  retries: 3 # connection retries, exponential backoff 1s, 2s, 4s
+  retries: 3          # connection retries, exponential backoff 1s, 2s, 4s
   temperature: 0.4
+
+claude_cli:
+  timeout_s: 600      # per stage; a long analysis can take a few minutes

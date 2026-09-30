@@ -116,3 +116,13 @@ def test_claude_backend_waits(monkeypatch, tmp_path):
     rec = AngleExtractor().execute(ctx())
     assert rec["status"] == "waiting"
     assert "PAST POSTS" in (tmp_path / "t-a04" / "angle_extractor.prompt.md").read_text(encoding="utf-8")
+
+
+def test_recommendation_follows_model_pick_or_falls_back():
+    from agents.angle_extractor.agent import recommend
+    angles = [{"title": "A one", "dedup_status": "ok"}, {"title": "B two", "dedup_status": "ok"},
+              {"title": "C three", "dedup_status": "rejected"}]
+    assert recommend(angles, "b two", "why")["title"] == "B two"
+    fb = recommend(angles, "C three", "why")
+    assert fb["title"] == "A one" and fb["source"] == "fallback" and "removed" in fb["reason"]
+    assert recommend(angles, None, None)["title"] == "A one"

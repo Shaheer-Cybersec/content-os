@@ -20,7 +20,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -48,6 +48,9 @@ class Strategy(BaseModel):
     hashtags: list[str] = Field(default_factory=list, max_length=6)
     evidence: list[Evidence] = Field(min_length=1)
     audience_note: str = Field(min_length=8)
+    confidence: Optional[float] = Field(default=None, ge=0, le=1,
+                                        description="how confident you are this plan makes a strong post")
+    rationale: Optional[str] = Field(default=None, description="1-2 sentences: why this format and hook")
 
 
 def voice_samples() -> str:
@@ -83,6 +86,8 @@ def mock_output(angle: dict) -> dict:
         "hashtags": ["#AppSec", "#Python"],
         "evidence": angle["evidence"][:2],
         "audience_note": "Mock: developers who ship web apps.",
+        "confidence": 0.7,
+        "rationale": "Mock: a lesson list suits one concrete fact.",
     }
 
 

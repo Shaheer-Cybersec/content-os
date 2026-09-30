@@ -80,7 +80,8 @@ def test_static_chain_offline(sandbox):
 
     assert [r["id"] for r in trail] == ["A01", "A02", "A10", "A11"]
     assert ctx["repo"]["file_count"] == 4
-    assert len(list((sandbox["root"] / "outputs").glob("*.md"))) == 1
+    folders = list((sandbox["root"] / "outputs").glob("*/*"))          # outputs/<repo>/<date>_<run>/
+    assert len(folders) == 1 and (folders[0] / "01_caption.md").exists()
     assert ctx["memory_write"]["post_id"] == 1
     # The next run sees the post (for dedup) and the unused angle (queued)
     assert mem["past_post_count"] == 1

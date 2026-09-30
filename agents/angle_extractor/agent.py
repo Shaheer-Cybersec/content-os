@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -47,12 +47,15 @@ class Angle(BaseModel):
     hook: str = Field(min_length=8, max_length=160, description="possible first line")
     post_type: Literal["lesson", "breakdown", "story", "how-to", "opinion"]
     audience: str = Field(min_length=3, description="who this is for")
-    score: float = Field(ge=0, le=1)
+    score: float = Field(ge=0, le=1, description="your confidence this post will land (0-1)")
     evidence: list[Evidence] = Field(min_length=1)
+    why: Optional[str] = Field(default=None, description="1 sentence: why this angle fits this author")
 
 
 class AnglesOut(BaseModel):
     angles: list[Angle] = Field(min_length=5, max_length=8)
+    recommended: Optional[str] = Field(default=None, description="exact title of the angle you would pick")
+    recommendation_reason: Optional[str] = Field(default=None, description="2-3 sentences: why that one, for this author")
 
 
 # ---------- prompt ----------
@@ -92,8 +95,10 @@ def mock_output(analysis: dict) -> dict:
             "audience": "security engineers",
             "score": round(0.9 - i * 0.1, 2),
             "evidence": f["evidence"][:1],
+            "why": "Mock: concrete, checkable, fits a practitioner audience.",
         })
-    return {"angles": angles}
+    return {"angles": angles, "recommended": angles[0]["title"],
+            "recommendation_reason": "Mock: highest score and the most concrete evidence."}
 
 
 # ---------- static post-processing ----------
@@ -161,6 +166,19 @@ def rank(angles: list[dict]) -> list[dict]:
     return sorted(angles, key=lambda a: (order[a["dedup_status"]], -a["score"]))
 
 
+def recommend(angles: list[dict], title: str | None, reason: str | None) -> dict | None:
+    """The model's pick, if it survived grounding and dedup; else the top usable angle."""
+    usable = [a for a in angles if a["dedup_status"] != "rejected"]
+    if not usable:
+        return None
+    for a in usable:
+        if title and a["title"].strip().lower() == title.strip().lower():
+            return {"title": a["title"], "reason": reason, "source": "model"}
+    note = "model's pick was removed by evidence/dedup checks; " if title else ""
+    return {"title": usable[0]["title"], "reason": f"{note}highest-scoring usable angle.",
+            "source": "fallback"}
+
+
 # ---------- agent ----------
 
 class AngleExtractor(BaseAgent):
@@ -184,7 +202,8 @@ class AngleExtractor(BaseAgent):
         if usable < MIN_USABLE:
             raise AgentError(f"only {usable} usable angle(s) after evidence + dedup checks "
                              f"(need {MIN_USABLE}). counts={counts}")
-        return {"angles": angles, "counts": counts, "dropped": dropped}
+        return {"angles": angles, "counts": counts, "dropped": dropped,
+                "recommendation": recommend(angles, raw.get("recommended"), raw.get("recommendation_reason"))}
 
 
 # ---------- manual checkpoint: A01 -> A02 -> A03 -> A04 ----------

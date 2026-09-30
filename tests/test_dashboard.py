@@ -43,7 +43,7 @@ def test_claude_handoff_paste_answer(sb, monkeypatch):
     d = D.run_detail(rid)
     assert d["summary"]["status"] == "waiting" and d["pending"] == ("A03", "analyzer")
     assert d["stages"][2]["status"] == "waiting"
-    assert "Claude stage: analyzer" in D.get_prompt(rid)["text"]
+    assert "Content OS stage: analyzer" in D.get_prompt(rid)["text"]
     with pytest.raises(AgentError, match="not valid JSON"):
         D.submit_response(rid, "not json")
     from agents.analyzer.agent import mock_output
@@ -93,3 +93,55 @@ def test_http_smoke(sb):
         assert e.value.code == 400
     finally:
         httpd.shutdown()
+
+
+def test_mode_switch_and_status(sb, monkeypatch, tmp_path):
+    from core import llm
+    monkeypatch.setattr(D, "SETTINGS_FILE", tmp_path / "dashboard.json")
+    assert D.get_mode() == "mock"
+    with pytest.raises(AgentError, match="mock"):
+        D.set_mode("auto")
+    monkeypatch.setattr(llm, "BACKEND", "claude")
+    assert D.set_mode("auto")["backend"] == "claude_cli" and llm.BACKEND == "claude_cli"
+    assert json.loads((tmp_path / "dashboard.json").read_text())["mode"] == "auto"
+    assert D.set_mode("manual")["mode"] == "manual"
+    with pytest.raises(AgentError, match="auto or manual"):
+        D.set_mode("turbo")
+    assert set(D.claude_status()) == {"found", "path", "version"}
+
+def test_live_feed_and_activity_log(sb, monkeypatch):
+    from core import llm
+    monkeypatch.setattr(llm, "BACKEND", "claude")
+    rid = D.start(sb["zip"], "d5"); wait_idle(rid)
+    (sb["root"] / "runs" / rid / "analyzer.live.txt").write_text('{"summary": "stream', encoding="utf-8")
+    d = D.run_detail(rid)
+    assert d["live"]["tag"] == "A03" and d["live"]["text"].endswith("stream")
+    kinds = {(e["kind"], e["tag"]) for e in d["events"]}
+    assert ("stage", "A01") in kinds and ("llm", "A03") in kinds
+
+def test_g1_shows_confidence_why_and_recommendation(sb):
+    rid = D.start(sb["zip"], "d6"); wait_idle(rid)
+    s = D.run_detail(rid)["summary"]
+    assert s["recommendation"]["title"] == s["angles"][0]["title"]
+    assert s["angles"][0]["recommended"] is True and s["angles"][0]["why"]
+
+
+def test_linkedin_kit_view_and_save(sb):
+    import base64 as b64
+    import io
+    from pathlib import Path
+
+    from PIL import Image
+    rid = D.start(sb["zip"], "d7"); wait_idle(rid)
+    D.pick(rid, 1); wait_idle(rid)
+    k = D.run_detail(rid)["kit"]
+    assert k["saved"] and k["has_pdf"] and not k["has_png"]           # server graphic first, canvas not yet
+    assert k["caption"] == D.run_detail(rid)["summary"]["package"]["text"]
+    buf = io.BytesIO(); Image.new("RGB", (1200, 627), "#123456").save(buf, "PNG")
+    png = "data:image/png;base64," + b64.b64encode(buf.getvalue()).decode()
+    k2 = D.save_kit(rid, png)
+    assert k2["has_png"] is True and k2["has_pdf"] is True
+    assert (Path(k2["dir"]) / "03_graphic.png").read_bytes() == buf.getvalue()
+    assert D.report_pdf(rid).startswith(b"%PDF")
+    with pytest.raises(AgentError, match="PNG"):
+        D.save_kit(rid, "data:image/png;base64," + b64.b64encode(b"GIF89a").decode())

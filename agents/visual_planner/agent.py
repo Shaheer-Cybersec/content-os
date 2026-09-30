@@ -37,9 +37,23 @@ class Shot(BaseModel):
     minutes: int = Field(ge=1, le=15)
 
 
+class Graphic(BaseModel):
+    style: Literal["terminal", "quote", "stat"] = Field(description="card template")
+    headline: str = Field(min_length=4, max_length=90, description="the one line the image says")
+    subline: Optional[str] = Field(default=None, max_length=140)
+    stat: Optional[str] = Field(default=None, max_length=24, description="a big number/term for 'stat' style")
+
+
+class ImagePrompt(BaseModel):
+    tool: str = Field(min_length=2, max_length=40, description="e.g. Canva, ChatGPT image, Gemini, Ideogram")
+    prompt: str = Field(min_length=20, max_length=1200)
+
+
 class VisualPlan(BaseModel):
     shots: list[Shot] = Field(default_factory=list, max_length=5)
     rationale: str = Field(min_length=10)
+    graphic: Optional[Graphic] = Field(default=None, description="a simple post card the dashboard renders")
+    image_prompts: list[ImagePrompt] = Field(default_factory=list, max_length=3)
 
 
 def build_user_prompt(strategy: dict, repo: dict) -> str:
@@ -59,7 +73,9 @@ def mock_output(strategy: dict) -> dict:
     return {"shots": [{"shot": "Mock code crop", "kind": "code",
                        "how": "Mock: open the file in VS Code, zoom 150%, crop the lines.",
                        "file_path": ev["source_path"], "lines": "1-20", "minutes": 3}],
-            "rationale": "Mock: one code shot proves the main fact."}
+            "rationale": "Mock: one code shot proves the main fact.",
+            "graphic": {"style": "terminal", "headline": f"Mock headline: {strategy['hook']}"[:90], "subline": "Mock subline"},
+            "image_prompts": [{"tool": "Canva", "prompt": "Mock: dark terminal-style LinkedIn post card, green monospace text, one headline line, lots of empty space."}]}
 
 
 def check_shots(shots: list[dict], repo: dict) -> tuple[list[dict], list[dict]]:
@@ -93,7 +109,8 @@ class VisualPlanner(BaseAgent):
                         user=build_user_prompt(ctx["strategy"], ctx["repo"]),
                         schema=VisualPlan, mock=mock_output(ctx["strategy"]), run_id=ctx["run_id"])
         shots, dropped = check_shots(plan["shots"], ctx["repo"])
-        return {"shots": shots, "rationale": plan["rationale"], "dropped": dropped}
+        return {"shots": shots, "rationale": plan["rationale"], "dropped": dropped,
+                "graphic": plan.get("graphic"), "image_prompts": plan.get("image_prompts") or []}
 
 
 # ---------- manual checkpoint: A01 -> A05, then A06 ----------

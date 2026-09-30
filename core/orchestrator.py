@@ -1,4 +1,3 @@
-
 """
 [I07] orchestrator - runs the pipeline as a resumable state machine.
 
@@ -88,7 +87,11 @@ def _advance(st: dict) -> dict:
             st["status"], st["gate"] = "gate", "G2"
             return _save(st)
         if step.startswith("A"):
-            rec = agents[step]().execute(ctx)
+            ctx["_records"] = st["records"]           # lets A10 draw timings in the report
+            try:
+                rec = agents[step]().execute(ctx)
+            finally:
+                ctx.pop("_records", None)
             rec["at"] = _now()
             st["records"][step] = rec
             if rec["status"] in ("waiting", "failed"):
@@ -158,9 +161,15 @@ def summary(st: dict) -> dict:
     if st["status"] in ("waiting", "failed"):
         out["detail"] = st["records"][PLAN[st["pos"]]]["error"]
     if st["gate"] == "G1":
+        angles = usable_angles(ctx)
+        rec = ctx.get("angle_set", {}).get("recommendation")
         out["angles"] = [{"n": i, "title": a["title"], "score": a.get("score"),
-                          "post_type": a.get("post_type"), "hook": a.get("hook")}
-                         for i, a in enumerate(usable_angles(ctx), 1)]
+                          "post_type": a.get("post_type"), "hook": a.get("hook"),
+                          "why": a.get("why"), "summary": a.get("summary"),
+                          "max_similarity": a.get("max_similarity"),
+                          "recommended": bool(rec and rec["title"] == a["title"])}
+                         for i, a in enumerate(angles, 1)]
+        out["recommendation"] = rec
     if st["gate"] == "G2":
         pkg = ctx["package"]
         out["package"] = {"path": pkg["path"], "chars": pkg["chars"], "warnings": pkg["warnings"],

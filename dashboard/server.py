@@ -21,6 +21,7 @@ disk, so the CLI, the dashboard and the runner skill all see the same run.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import threading
@@ -30,6 +31,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from config import settings
+from core import llm
 from core import orchestrator as O
 from core.base_agent import AgentError
 from memory import db
@@ -56,6 +58,9 @@ STEPS = [  # (tag, name, who, what it does)
 PRODUCES = {"A01": "repo", "A02": "memory", "A03": "analysis", "A04": "angle_set",
             "A05": "strategy", "A06": "visual_plan", "A07": "draft", "A08": "critique",
             "A09": "final_draft", "A10": "package", "A11": "memory_write"}
+
+SETTINGS_FILE = settings.DATA_DIR / "dashboard.json"
+MODES = {"auto": "claude_cli", "manual": "claude"}
 
 _busy: set[str] = set()
 _errors: dict[str, str] = {}
@@ -150,6 +155,76 @@ def pending_stage(st: dict) -> tuple[str, str] | None:
     return (tag, dict((t, n) for t, n, _, _ in STEPS)[tag]) if tag.startswith("A") else None
 
 
+def _package_md_path(pkg: dict) -> Path:
+    p = Path(pkg["path"])
+    p = p if p.is_absolute() else settings.ROOT / p
+    if p.exists():
+        return p
+    parts = Path(pkg["path"]).parts[-3:] if pkg.get("folder") else Path(pkg["path"]).parts[-1:]
+    return settings.OUTPUTS_DIR.joinpath(*parts)
+
+
+def _run_folder(ctx: dict) -> Path:
+    """outputs/<repo>/<date>_<run>/ for this run (runs from before the new layout get one on demand)."""
+    from core.report import run_folder
+    pkg = ctx["package"]
+    if pkg.get("folder"):
+        f = Path(pkg["folder"])
+        if not f.is_absolute():
+            f = settings.ROOT / f
+        return f if f.exists() else settings.OUTPUTS_DIR.joinpath(*Path(pkg["folder"]).parts[-2:])
+    m = re.match(r"\d{4}-\d\d-\d\d", Path(pkg["path"]).name)          # old flat file: <date>-<repo>-<run>.md
+    return run_folder(settings.OUTPUTS_DIR, ctx["repo"], ctx["run_id"], m.group(0) if m else None)
+
+
+def kit_view(ctx: dict) -> dict | None:
+    """The LinkedIn kit for a packaged run (built on the fly for runs older than the kit)."""
+    from core.report import linkedin_kit
+    pkg = ctx.get("package")
+    if not pkg:
+        return None
+    kit = pkg.get("kit") or linkedin_kit(ctx["repo"], pkg["post"]["text"], pkg["post"]["evidence"],
+                                         ctx.get("visual_plan"))
+    folder = _run_folder(ctx)
+    try:
+        src = json.loads((folder / "manifest.json").read_text(encoding="utf-8")).get("graphic_source")
+    except (OSError, ValueError):
+        src = None
+    return {"caption": kit["caption"], "first_comment": kit["first_comment"], "alt_text": kit["alt_text"],
+            "dir": folder.as_posix(), "saved": (folder / "01_caption.md").exists(),
+            "has_png": src == "dashboard",            # true once the dashboard's own canvas graphic is saved
+            "has_pdf": (folder / "00_REPORT.pdf").exists()}
+
+
+def save_kit(run_id: str, png_data_url: str) -> dict:
+    """(Re)write the whole run folder + PDF, using the dashboard-drawn graphic when one is sent."""
+    from core.report import build_folder
+    st = O.load(_check_id(run_id))
+    ctx = st["ctx"]
+    if not kit_view(ctx):
+        raise AgentError("this run has no package yet")
+    folder = _run_folder(ctx)
+    png = None
+    if png_data_url:
+        png = base64.b64decode(png_data_url.split(",", 1)[-1], validate=True)
+        if not png.startswith(b"\x89PNG\r\n\x1a\n") or len(png) > 10 * 1024 * 1024:
+            raise AgentError("graphic must be a PNG under 10 MB")
+    build_folder(ctx, folder, records=st["records"], png=png, date=folder.name.split("_")[0])
+    return kit_view(ctx)
+
+
+def report_pdf(run_id: str) -> bytes:
+    st = O.load(_check_id(run_id))
+    if not kit_view(st["ctx"]):
+        raise AgentError("this run has no package yet")
+    f = _run_folder(st["ctx"]) / "00_REPORT.pdf"
+    if not f.exists():
+        save_kit(run_id, "")
+    if not f.exists():
+        raise AgentError("PDF not built. Run: pip install pillow reportlab")
+    return f.read_bytes()
+
+
 def get_prompt(run_id: str) -> dict:
     st = O.load(_check_id(run_id))
     p = pending_stage(st)
@@ -175,6 +250,55 @@ def submit_response(run_id: str, text: str) -> None:
         raise AgentError(f"that is not valid JSON: {e}")
     (settings.RUNS_DIR / run_id / f"{p[1]}.response.json").write_text(text, encoding="utf-8")
     resume(run_id)
+
+
+# ---------------- settings: Auto (Claude Code) or Manual (copy/paste) ----------------
+
+_claude_version: dict = {}
+
+
+def claude_status() -> dict:
+    path = llm.claude_bin()
+    if path and path not in _claude_version:
+        try:
+            import subprocess
+            out = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=20,
+                                 creationflags=llm.NO_WINDOW)
+            _claude_version[path] = (out.stdout or out.stderr).strip()[:60]
+        except Exception as e:                                   # noqa: BLE001
+            _claude_version[path] = f"error: {e}"
+    return {"found": bool(path), "path": path, "version": _claude_version.get(path)}
+
+
+def get_mode() -> str:
+    if llm.BACKEND == "mock":
+        return "mock"
+    return "auto" if llm.BACKEND == "claude_cli" else "manual"
+
+
+def set_mode(mode: str) -> dict:
+    if llm.BACKEND == "mock":
+        raise AgentError("CONTENTOS_BACKEND=mock is set; unset it to choose Auto or Manual")
+    if mode not in MODES:
+        raise AgentError("mode must be auto or manual")
+    llm.BACKEND = MODES[mode]
+    SETTINGS_FILE.write_text(json.dumps({"mode": mode}), encoding="utf-8")
+    return settings_view()
+
+
+def load_mode() -> None:
+    if llm.BACKEND == "mock":
+        return
+    try:
+        mode = json.loads(SETTINGS_FILE.read_text(encoding="utf-8")).get("mode")
+    except (OSError, json.JSONDecodeError):
+        mode = "auto" if llm.claude_bin() else None
+    if mode in MODES:
+        llm.BACKEND = MODES[mode]
+
+
+def settings_view() -> dict:
+    return {"mode": get_mode(), "backend": llm.BACKEND, "claude": claude_status()}
 
 
 # ---------------- views ----------------
@@ -219,15 +343,48 @@ def run_detail(run_id: str) -> dict:
         outputs["G1"] = ctx["chosen_angle"]
     pkg_md = None
     if "package" in ctx:
-        p = Path(ctx["package"]["path"])
-        p = p if p.is_absolute() else settings.ROOT / p
-        if not p.exists():
-            p = settings.OUTPUTS_DIR / Path(ctx["package"]["path"]).name
+        p = _package_md_path(ctx["package"])
         pkg_md = p.read_text(encoding="utf-8") if p.exists() else None
     return {"summary": O.summary(st), "source": st["source"], "busy": busy,
+            "live": live_view(st, busy), "events": events(st),
             "error": _errors.get(run_id), "created": st["created"], "updated": st["updated"],
             "stages": stage_view(st, busy), "outputs": outputs,
-            "pending": pending_stage(st), "package_md": pkg_md}
+            "pending": pending_stage(st), "package_md": pkg_md, "kit": kit_view(ctx)}
+
+
+STAGE_NAME = {t: n for t, n, _, _ in STEPS}
+
+
+def live_view(st: dict, busy: bool) -> dict | None:
+    """What the running (or waiting) stage is writing right now."""
+    if st["pos"] >= len(O.PLAN) or not O.PLAN[st["pos"]].startswith("A"):
+        return None
+    tag = O.PLAN[st["pos"]]
+    f = settings.RUNS_DIR / st["run_id"] / f"{STAGE_NAME[tag]}.live.txt"
+    text = f.read_text(encoding="utf-8", errors="replace") if f.exists() else ""
+    if not busy and not text:
+        return None
+    return {"tag": tag, "name": STAGE_NAME[tag], "since": st["updated"], "chars": len(text),
+            "text": text[-2500:]}
+
+
+def events(st: dict) -> list[dict]:
+    """Activity log: stage results + every LLM call, oldest first."""
+    ev = [{"at": r.get("at", ""), "tag": tag, "kind": "stage", "status": r["status"],
+           "ms": r["duration_ms"], "error": r["error"]} for tag, r in st["records"].items()]
+    f = settings.RUNS_DIR / st["run_id"] / "llm_log.jsonl"
+    if f.exists():
+        tags = {n: t for t, n, _, _ in STEPS}
+        for line in f.read_text(encoding="utf-8").splitlines()[-60:]:
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            ev.append({"at": e.get("at", ""), "tag": tags.get(e.get("stage"), e.get("stage")),
+                       "kind": "llm", "backend": e.get("backend"), "model": e.get("model"),
+                       "ms": e.get("duration_ms"), "ok": e.get("ok"), "repaired": e.get("repaired"),
+                       "error": e.get("error"), "waiting": e.get("waiting")})
+    return sorted(ev, key=lambda e: e["at"] or "")[-80:]
 
 
 def list_runs() -> list[dict]:
@@ -304,13 +461,19 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, list_runs())
                 if p == ["memory"]:
                     return self._send(200, memory_view())
+                if p == ["settings"]:
+                    return self._send(200, settings_view())
                 if len(p) == 2 and p[0] == "runs":
                     return self._send(200, run_detail(p[1]))
                 if len(p) == 3 and p[0] == "runs" and p[2] == "prompt":
                     return self._send(200, get_prompt(p[1]))
+                if len(p) == 3 and p[0] == "runs" and p[2] == "report.pdf":
+                    return self._send(200, report_pdf(p[1]), "application/pdf")
             if method == "POST":
                 if p == ["runs"]:
                     return self._send(202, {"run_id": start(self._json().get("source", ""))})
+                if p == ["settings"]:
+                    return self._send(200, set_mode(self._json().get("mode", "")))
                 if p == ["upload"]:
                     name = parse_qs(u.query).get("name", ["upload.zip"])[0]
                     return self._send(202, {"run_id": upload_and_start(name, self._body())})
@@ -326,6 +489,8 @@ class Handler(BaseHTTPRequestHandler):
                         resume(rid)
                     elif act == "response":
                         submit_response(rid, self._json().get("text", ""))
+                    elif act == "kit":
+                        return self._send(200, save_kit(rid, self._json().get("png", "")))
                     else:
                         return self._send(404, {"error": "unknown action"})
                     return self._send(202, {"ok": True})
@@ -350,7 +515,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Content OS dashboard")
     ap.add_argument("--port", type=int, default=8765)
     a = ap.parse_args()
+    load_mode()
     httpd = serve(a.port)
+    s = settings_view()
+    print(f"mode: {s['mode']}   Claude Code: {s['claude']['version'] or 'not found'}")
     print(f"Content OS dashboard: http://127.0.0.1:{a.port}   (Ctrl+C to stop)")
     try:
         httpd.serve_forever()

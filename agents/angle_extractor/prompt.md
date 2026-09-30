@@ -21,3 +21,9 @@ Rules:
 5. hook is a possible first line of the post: concrete, under 20 words, no clickbait
    phrasing ("You won't believe"), no emojis.
 6. Plain language. No hype words.
+7. score is also shown to the author as your confidence, so be honest and spread it.
+8. why: one sentence on why this angle fits THIS author (a practitioner who builds and breaks
+   security tools, writes in short concrete lines, admits what failed).
+9. recommended: the exact title of the one angle you would publish first, and
+   recommendation_reason: 2-3 sentences on why that one beats the others for this author now
+   (novelty vs his past posts, strength of evidence, how well it can be shown in a screenshot).

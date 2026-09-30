@@ -13,3 +13,12 @@ Rules:
 - how: concrete steps (what to run or open, zoom, crop). No design software.
 - Never plan a screenshot of something that does not exist in the repo or cannot be run.
 - 0 shots is acceptable if the post works better as text.
+
+Also design the post's cover graphic:
+- graphic: a simple card the author's dashboard renders itself. style "terminal" (command-line
+  look), "quote" (one strong line) or "stat" (one big number or term + a line). headline is the
+  single line it says (max 90 chars, from the post's core fact, not a slogan). Optional subline.
+- image_prompts: 1-3 ready-to-paste prompts for image tools (Canva Magic Media, ChatGPT image,
+  Gemini, Ideogram). Each describes one clean 1200x627 LinkedIn image: subject, layout, colours
+  (dark background, terminal green/cyan accents suit this author), and the exact short text to
+  show if any. No logos of real companies, no faces, no fake UI that implies a real product.
